@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2>Informe de Horas Trabajadas</h2>
+    <a href="/admin/panel" style="text-decoration: none; color: #007bff;">⬅️ Volver al Panel</a>
+    
+    {% for item in informe %}
+        <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-top: 20px;">
+            <h3>Empleado: {{ item.nombre }}</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8f9fa;">
+                        <th style="padding: 10px; border: 1px solid #ddd;">Fecha</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Entrada</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Salida</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Total Jornada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fecha, datos in item.dias.items() %}
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ fecha }}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ datos.entrada.strftime('%H:%M') if datos.entrada else '-' }}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">{{ datos.salida.strftime('%H:%M') if datos.salida else '-' }}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; color: #28a745;">{{ datos.total_horas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endfor %}
+{% endblock %}

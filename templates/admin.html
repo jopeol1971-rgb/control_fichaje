@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+
+    <h2>Panel de Administración</h2>
+
+   <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; display: flex; align-items: center; gap: 15px;">
+    
+    <a href="/admin/nuevo_empleado" style="background-color: #28a745; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; display: inline-block;">
+        ➕ Nuevo Empleado
+    </a>
+
+    <a href="/admin/exportar" style="background-color: #007bff; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; display: inline-block;">
+        📥 Descargar CSV
+    </a>
+
+    <a href="/" style="margin-left: auto; text-decoration: none; color: #666; font-weight: bold;">
+        ⬅️ Volver al Inicio
+    </a>
+
+    <a href="/admin/informe" style="background-color: #6f42c1; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; display: inline-block;">
+    📊 Ver Informe de Horas
+    </a>
+</div>
+
+    <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 30px;">
+        <div id="calendar-admin"></div>
+    </div>
+
+    <h3>Registros Recientes</h3>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f4f4f4;">
+                <th style="padding: 10px; border: 1px solid #ddd;">Empleado</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Acción</th>
+                <th style="padding: 10px; border: 1px solid #ddd;">Fecha y Hora</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ entry.usuario.nombre }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ entry.tipo | capitalize }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ entry.timestamp.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar-admin');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth', // Vista inicial por mes
+            locale: 'es',
+            height: 600,
+            // AQUÍ ACTIVAMOS LOS BOTONES DE SEMANA Y DÍA
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay' 
+            },
+            buttonText: {
+                today:    'Hoy',
+                month:    'Mes',
+                week:     'Semana',
+                day:      'Día'
+            },
+            events: [
+                {% for f in entries %}
+                {
+                    // AQUÍ INCLUIMOS EL NOMBRE DEL USUARIO
+                    title: '{{ f.usuario.nombre }}: {{ f.tipo | capitalize }}',
+                    start: '{{ f.timestamp.strftime("%Y-%m-%dT%H:%M:%S") }}',
+                    color: '{% if f.tipo == "entrada" %}#28a745{% elif f.tipo == "descanso" %}#ffc107{% else %}#dc3545{% endif %}',
+                    allDay: false // Importante para que se vea en la cuadrícula horaria
+                },
+                {% endfor %}
+            ],
+            eventTimeFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %}

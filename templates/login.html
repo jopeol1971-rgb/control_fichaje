@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2>Acceso Empleados</h2>
+    <form method="POST">
+        <div style="margin-bottom: 10px;">
+            <input type="text" name="nombre" placeholder="Nombre de usuario" required 
+                   style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <input type="password" name="password" placeholder="Contraseña" required 
+                   style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+        </div>
+        <button type="submit" class="btn btn-entrada" style="width: 100%;">Entrar</button>
+    </form>
+{% endblock %}

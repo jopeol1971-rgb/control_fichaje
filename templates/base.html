@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+ <style>
+    /* Estilos base para todos los botones */
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        text-decoration: none;
+        display: inline-block;
+        transition: opacity 0.3s;
+    }
+
+    .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    /* Colores específicos */
+    .btn-entrada {
+        background-color: #28a745; /* Verde */
+        color: white;
+    }
+
+    .btn-descanso {
+        background-color: #ffc107; /* Amarillo/Dorado */
+        color: #333;
+    }
+
+    .btn-salida {
+        background-color: #dc3545; /* Rojo */
+        color: white;
+    }
+    
+    /* Efecto al pasar el ratón */
+    .btn:hover:not(:disabled) {
+        filter: brightness(90%);
+    }
+</style>
+</head>
+<body>
+    <div class="card">
+        {% block content %}{% endblock %}
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <p class="mensaje">{{ message }}</p>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html>
