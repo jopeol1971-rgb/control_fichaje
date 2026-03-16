@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, Response # Añadido Response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, Response
 from datetime import datetime, timedelta
 from models import db, Usuario, Fichaje
-import csv # Movido arriba
-from io import StringIO # Movido arriba
+import csv
+from io import StringIO
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_para_sesiones'
@@ -14,28 +14,43 @@ db.init_app(app)
 def calcular_horas_diarias(fichajes):
     resumen = {}
     
-    # Agrupamos fichajes por fecha (día/mes/año)
     for f in fichajes:
         fecha_str = f.timestamp.strftime('%Y-%m-%d')
         if fecha_str not in resumen:
-            resumen[fecha_str] = {'entrada': None, 'salida': None, 'pausa': None, 'total': timedelta(0)}
-        
-        # Guardamos el primer evento de cada tipo para simplificar
-        if f.tipo == 'entrada' and not resumen[fecha_str]['entrada']:
-            resumen[fecha_str]['entrada'] = f.timestamp
-        elif f.tipo == 'descanso' and not resumen[fecha_str]['pausa']:
-            resumen[fecha_str]['pausa'] = f.timestamp
-        elif f.tipo == 'salida' and not resumen[fecha_str]['salida']:
-            resumen[fecha_str]['salida'] = f.timestamp
+            resumen[fecha_str] = {'eventos': [], 'total_pausa': timedelta(0)}
+        resumen[fecha_str]['eventos'].append(f)
 
-    # Calculamos la duración
     for fecha, datos in resumen.items():
-        if datos['entrada'] and datos['salida']:
-            duracion = datos['salida'] - datos['entrada']
-            # Si hubo pausa, podríamos restar tiempo (aquí lo simplificamos a total entrada-salida)
-            resumen[fecha]['total_horas'] = str(duracion).split('.')[0] # Formato HH:MM:SS
+        eventos = sorted(datos['eventos'], key=lambda x: x.timestamp)
+        
+        entrada_principal = next((e.timestamp for e in eventos if e.tipo == 'entrada'), None)
+        salida_principal = next((e.timestamp for e in reversed(eventos) if e.tipo == 'salida'), None)
+        
+        inicio_descanso = None
+        for e in eventos:
+            if e.tipo == 'descanso':
+                inicio_descanso = e.timestamp
+            elif e.tipo == 'entrada' and inicio_descanso:
+                datos['total_pausa'] += (e.timestamp - inicio_descanso)
+                inicio_descanso = None
+
+        if entrada_principal and salida_principal:
+            duracion_jornada = salida_principal - entrada_principal
+            datos['total_horas'] = str(duracion_jornada).split('.')[0]
+            
+            tiempo_pausa_str = str(datos['total_pausa']).split('.')[0]
+            limite = timedelta(minutes=30)
+            
+            if datos['total_pausa'] > limite:
+                datos['observaciones'] = f"⚠️ Exceso pausa: {tiempo_pausa_str} (Máx 30min)"
+                datos['alerta'] = True
+            else:
+                datos['observaciones'] = f"Pausa: {tiempo_pausa_str}"
+                datos['alerta'] = False
         else:
-            resumen[fecha]['total_horas'] = "Pendiente"
+            datos['total_horas'] = "Pendiente"
+            datos['observaciones'] = "Faltan registros"
+            datos['alerta'] = False
             
     return resumen
 
@@ -46,16 +61,13 @@ def login():
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         password = request.form.get('password')
-        
         user = Usuario.query.filter_by(nombre=nombre, password=password).first()
-        
         if user:
             session['user_id'] = user.id
-            flash(f'Bienvenido, {user.nombre}')
+            flash(f'Bienvenido a Superpekes, {user.nombre}')
             return redirect(url_for('index'))
         else:
             flash('Usuario o contraseña incorrectos')
-            
     return render_template('login.html')
 
 @app.route('/logout')
@@ -69,28 +81,57 @@ def index():
         return redirect(url_for('login'))
         
     user = db.session.get(Usuario, session['user_id']) 
-    
-    # 1. Obtenemos todos los fichajes del usuario para el calendario
+    if not user:
+        session.pop('user_id', None)
+        return redirect(url_for('login'))
+
     fichajes_usuario = Fichaje.query.filter_by(usuario_id=user.id).all()
-    
-    # 2. Buscamos el último fichaje para el estado de los botones
     ultimo_fichaje = Fichaje.query.filter_by(usuario_id=user.id).order_by(Fichaje.timestamp.desc()).first()
-    estado = ultimo_fichaje.tipo if ultimo_fichaje else 'fuera'
     
-    return render_template('index.html', user=user, estado=estado, historial=fichajes_usuario)
+    estado = ultimo_fichaje.tipo if ultimo_fichaje else 'fuera'
+    alerta_olvido = False
+    
+    # NUEVA LÓGICA: Buscar la PRIMERA entrada de hoy
+    hoy = datetime.now().date()
+    primera_entrada_hoy = Fichaje.query.filter(
+        Fichaje.usuario_id == user.id,
+        Fichaje.tipo == 'entrada',
+        db.func.date(Fichaje.timestamp) == hoy
+    ).order_by(Fichaje.timestamp.asc()).first()
+
+    # La hora de inicio para el cronómetro de jornada será la primera entrada
+    hora_inicio_jornada = primera_entrada_hoy.timestamp.isoformat() if primera_entrada_hoy else ""
+    
+    # La hora de inicio para el cronómetro de pausa (si está en pausa)
+    hora_inicio_pausa = ultimo_fichaje.timestamp.isoformat() if (ultimo_fichaje and estado == 'descanso') else ""
+
+    if ultimo_fichaje and estado == 'entrada' and ultimo_fichaje.timestamp.date() < hoy:
+        alerta_olvido = True
+
+    return render_template('index.html', 
+                           user=user, 
+                           estado=estado, 
+                           historial=fichajes_usuario, 
+                           hora_inicio=hora_inicio_jornada, # Primera entrada del día
+                           hora_pausa=hora_inicio_pausa,    # Último fichaje de pausa
+                           alerta_olvido=alerta_olvido)
 
 @app.route('/fichar/<tipo>', methods=['POST'])
 def registrar_fichaje(tipo):
-    user_id = session.get('user_id', 1)
+    user_id = session.get('user_id')
     ultimo = Fichaje.query.filter_by(usuario_id=user_id).order_by(Fichaje.timestamp.desc()).first()
     ultimo_tipo = ultimo.tipo if ultimo else 'salida'
 
+    if tipo == 'descanso' and ultimo_tipo == 'descanso':
+        tipo = 'entrada'
+        mensaje = "Fin de descanso. ¡A seguir!"
+    elif tipo == 'descanso':
+        mensaje = "Descanso iniciado."
+    else:
+        mensaje = f"Registro de {tipo} completado."
+
     if tipo == 'entrada' and ultimo_tipo == 'entrada':
-        flash("Ya has registrado una entrada.")
-        return redirect(url_for('index'))
-    
-    if tipo in ['salida', 'descanso'] and (not ultimo or ultimo_tipo == 'salida'):
-        flash(f"No puedes registrar {tipo} sin haber iniciado jornada.")
+        flash("Ya tienes una entrada activa.")
         return redirect(url_for('index'))
 
     nuevo_fichaje = Fichaje(
@@ -102,39 +143,41 @@ def registrar_fichaje(tipo):
     db.session.add(nuevo_fichaje)
     db.session.commit()
     
-    hora_fichaje = datetime.now().strftime("%H:%M:%S")
-    flash(f'Registro de {tipo} completado con éxito a las {hora_fichaje}.')
+    flash(f'{mensaje} a las {datetime.now().strftime("%H:%M:%S")}.')
     return redirect(url_for('index'))
 
 @app.route('/admin/panel')
 def admin_panel():
-    # Solo permitimos el acceso si el usuario es admin (opcional, pero recomendado)
     user_id = session.get('user_id')
     user = db.session.get(Usuario, user_id)
     if not user or user.rol != 'admin':
-        flash("Acceso denegado: se requieren permisos de administrador.")
         return redirect(url_for('index'))
-
-    # Recuperamos todos los fichajes de todos los usuarios
     todos_los_fichajes = Fichaje.query.order_by(Fichaje.timestamp.desc()).all()
     return render_template('admin.html', entries=todos_los_fichajes)
 
-# --- LA NUEVA RUTA DEBE IR AQUÍ (ANTES DEL APP.RUN) ---
 @app.route('/admin/exportar')
 def exportar_csv():
+    user_id = session.get('user_id')
+    user = db.session.get(Usuario, user_id)
+    if not user or user.rol != 'admin':
+        return redirect(url_for('login'))
+
     fichajes = Fichaje.query.all()
     si = StringIO()
     cw = csv.writer(si)
-    cw.writerow(['ID', 'Usuario', 'Tipo', 'Fecha y Hora', 'IP'])
-    for f in fichajes:
-        cw.writerow([f.id, f.usuario.nombre, f.tipo, f.timestamp.strftime('%Y-%m-%d %H:%M:%S'), f.ip_origen])
+    cw.writerow(['ID', 'Usuario', 'Tipo', 'Fecha y Hora', 'IP Origen', 'Editado por Admin', 'Motivo de Corrección'])
     
-    output = si.getvalue()
-    return Response(
-        output,
-        mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=fichajes_jornada.csv"}
-    )
+    for f in fichajes:
+        cw.writerow([
+            f.id, f.usuario.nombre, f.tipo, 
+            f.timestamp.strftime('%Y-%m-%d %H:%M:%S'), f.ip_origen,
+            "SÍ" if f.editado_por_admin else "NO",
+            f.motivo_edicion if f.motivo_edicion else ""
+        ])
+    
+    return Response(si.getvalue(), mimetype="text/csv",
+                    headers={"Content-disposition": "attachment; filename=informe_fichajes.csv"})
+
 @app.route('/admin/informe')
 def admin_informe():
     user_id = session.get('user_id')
@@ -144,55 +187,54 @@ def admin_informe():
 
     usuarios = Usuario.query.all()
     informe_final = []
-
     for u in usuarios:
         fichajes_u = Fichaje.query.filter_by(usuario_id=u.id).order_by(Fichaje.timestamp.asc()).all()
         horas_dia = calcular_horas_diarias(fichajes_u)
         informe_final.append({'nombre': u.nombre, 'dias': horas_dia})
-
     return render_template('informe.html', informe=informe_final)
 
 @app.route('/admin/nuevo_empleado', methods=['GET', 'POST'])
 def nuevo_empleado():
-    # Seguridad: solo admin entra aquí
     user_id = session.get('user_id')
-    user = Usuario.query.get(user_id)
+    user = db.session.get(Usuario, user_id)
     if not user or user.rol != 'admin':
-        flash("Acceso denegado.")
         return redirect(url_for('index'))
 
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         password = request.form.get('password')
         rol = request.form.get('rol')
-
-        # Verificar si el nombre ya existe
-        existente = Usuario.query.filter_by(nombre=nombre).first()
-        if existente:
+        if Usuario.query.filter_by(nombre=nombre).first():
             flash("El nombre de usuario ya existe.")
         else:
-            nuevo_user = Usuario(nombre=nombre, password=password, rol=rol)
-            db.session.add(nuevo_user)
+            db.session.add(Usuario(nombre=nombre, password=password, rol=rol))
             db.session.commit()
-            flash(f"Empleado {nombre} creado con éxito.")
+            flash(f"Empleado {nombre} creado.")
             return redirect(url_for('admin_panel'))
-
     return render_template('nuevo_empleado.html')
+
+@app.route('/admin/corregir_fichaje', methods=['POST'])
+def corregir_fichaje():
+    user_id = session.get('user_id')
+    user = db.session.get(Usuario, user_id)
+    if not user or user.rol != 'admin':
+        flash("Acceso denegado.")
+        return redirect(url_for('index'))
+
+    f_id = request.form.get('fichaje_id')
+    fichaje = db.session.get(Fichaje, f_id)
+    if fichaje:
+        fichaje.timestamp = datetime.strptime(request.form.get('nueva_fecha_hora'), '%Y-%m-%dT%H:%M')
+        fichaje.editado_por_admin = True
+        fichaje.motivo_edicion = request.form.get('motivo')
+        db.session.commit()
+        flash("Registro corregido con éxito.")
+    return redirect(url_for('admin_panel'))
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        
-        # Esto buscará al usuario o lo creará si no existe
-        admin = Usuario.query.filter_by(nombre='admin').first()
-        if not admin:
-            admin = Usuario(nombre='admin', password='1234', rol='admin')
-            db.session.add(admin)
-        else:
-            # Si ya existe, nos aseguramos de que tenga la contraseña puesta
-            admin.password = '1234'
-            
-        db.session.commit()
-        print(">>> Usuario listo: nombre: admin | password: 1234")
-
+        if not Usuario.query.filter_by(nombre='admin').first():
+            db.session.add(Usuario(nombre='admin', password='1234', rol='admin'))
+            db.session.commit()
     app.run(debug=True)

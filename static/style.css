@@ -1,0 +1,104 @@
+/* --- CONFIGURACIÓN DE PÁGINA --- */
+body { 
+    font-family: 'Segoe UI', Roboto, sans-serif; 
+    /* Quitamos el centrado absoluto para que el contenido fluya hacia abajo */
+    display: block; 
+    min-height: 100vh; 
+    background: #f0f4f8; 
+    margin: 0;
+    padding: 20px;
+    color: #334155;
+}
+
+/* --- CONTENEDORES (Reemplaza o mejora tu .card) --- */
+.card { 
+    background: white; 
+    padding: 1.5rem; 
+    border-radius: 12px; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+    border: none;
+    margin-bottom: 20px;
+}
+
+/* --- BOTONES MODERNOS --- */
+.btn { 
+    padding: 12px 20px; 
+    border: none; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    font-size: 0.9rem; 
+    font-weight: 600;
+    margin: 5px; 
+    color: white;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    filter: brightness(1.1);
+}
+
+.btn:disabled {
+    background: #cbd5e0 !important;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* --- COLORES DE ESTADO (Mantenemos tus nombres pero mejoramos el tono) --- */
+.btn-entrada, .entrada { background: #10b981; } /* Un verde más vivo */
+.btn-salida, .salida { background: #ef4444; }   /* Un rojo más moderno */
+.btn-descanso, .descanso { background: #f59e0b; color: white; } /* Ámbar con texto blanco */
+
+/* --- CRONÓMETROS --- */
+#panel-cronometro, #panel-pausa {
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    border-left: 5px solid;
+}
+
+#panel-cronometro {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1e40af;
+}
+
+#panel-pausa {
+    background: #fffbeb;
+    border-color: #f59e0b;
+    color: #92400e;
+}
+
+/* --- BADGES (Para el historial) --- */
+.badge {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* --- NAVEGACIÓN Y MENSAJES --- */
+nav { 
+    background: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: flex-end;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.mensaje { 
+    padding: 10px;
+    border-radius: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #64748b; 
+    margin-top: 1rem; 
+}
