@@ -13,6 +13,7 @@ db.init_app(app)
 
 def calcular_horas_diarias(fichajes):
     resumen = {}
+    ahora = datetime.now()
     
     for f in fichajes:
         fecha_str = f.timestamp.strftime('%Y-%m-%d')
@@ -26,6 +27,7 @@ def calcular_horas_diarias(fichajes):
         entrada_principal = next((e.timestamp for e in eventos if e.tipo == 'entrada'), None)
         salida_principal = next((e.timestamp for e in reversed(eventos) if e.tipo == 'salida'), None)
         
+        # --- Lógica de Descansos ---
         inicio_descanso = None
         for e in eventos:
             if e.tipo == 'descanso':
@@ -33,24 +35,38 @@ def calcular_horas_diarias(fichajes):
             elif e.tipo == 'entrada' and inicio_descanso:
                 datos['total_pausa'] += (e.timestamp - inicio_descanso)
                 inicio_descanso = None
+        
+        # Si sigue en descanso hoy, sumamos el tiempo transcurrido hasta "ahora"
+        if inicio_descanso and fecha == ahora.strftime('%Y-%m-%d'):
+            datos['total_pausa'] += (ahora - inicio_descanso)
 
-        if entrada_principal and salida_principal:
-            duracion_jornada = salida_principal - entrada_principal
-            datos['total_horas'] = str(duracion_jornada).split('.')[0]
+        # Formateamos el tiempo de pausa para que sea legible (HH:MM:SS)
+        datos['total_pausa_str'] = str(datos['total_pausa']).split('.')[0]
+        datos['pausa'] = datos['total_pausa_str']
+        limite = timedelta(minutes=30)
+
+        # --- Cálculos y Alertas ---
+        if entrada_principal:
+            fin_calculo = salida_principal if salida_principal else ahora
+            duracion_jornada = fin_calculo - entrada_principal
+            horas_netas = duracion_jornada - datos['total_pausa']
+            datos['total_horas'] = str(horas_netas).split('.')[0]
+            datos['entrada'] = entrada_principal
+            datos['salida'] = salida_principal
             
-            tiempo_pausa_str = str(datos['total_pausa']).split('.')[0]
-            limite = timedelta(minutes=30)
-            
+            # Validación de límite de pausa para la alerta del admin
             if datos['total_pausa'] > limite:
-                datos['observaciones'] = f"⚠️ Exceso pausa: {tiempo_pausa_str} (Máx 30min)"
+                datos['observaciones'] = f"⚠️ Exceso pausa: {datos['total_pausa_str']} (Máx 30min)"
                 datos['alerta'] = True
             else:
-                datos['observaciones'] = f"Pausa: {tiempo_pausa_str}"
+                datos['observaciones'] = f"Pausa: {datos['total_pausa_str']}"
                 datos['alerta'] = False
         else:
             datos['total_horas'] = "Pendiente"
-            datos['observaciones'] = "Faltan registros"
+            datos['observaciones'] = "Sin entrada principal"
             datos['alerta'] = False
+            datos['entrada'] = None
+            datos['salida'] = None
             
     return resumen
 
@@ -90,19 +106,24 @@ def index():
     
     estado = ultimo_fichaje.tipo if ultimo_fichaje else 'fuera'
     alerta_olvido = False
-    
-    # NUEVA LÓGICA: Buscar la PRIMERA entrada de hoy
     hoy = datetime.now().date()
-    primera_entrada_hoy = Fichaje.query.filter(
-        Fichaje.usuario_id == user.id,
-        Fichaje.tipo == 'entrada',
-        db.func.date(Fichaje.timestamp) == hoy
-    ).order_by(Fichaje.timestamp.asc()).first()
-
-    # La hora de inicio para el cronómetro de jornada será la primera entrada
-    hora_inicio_jornada = primera_entrada_hoy.timestamp.isoformat() if primera_entrada_hoy else ""
     
-    # La hora de inicio para el cronómetro de pausa (si está en pausa)
+    # Lógica para cronómetros de hoy
+    fichajes_hoy = [f for f in fichajes_usuario if f.timestamp.date() == hoy]
+    fichajes_hoy.sort(key=lambda x: x.timestamp)
+
+    # Calcular segundos de pausas ya FINALIZADAS hoy
+    segundos_pausa_cerrados = 0
+    temp_inicio_pausa = None
+    for f in fichajes_hoy:
+        if f.tipo == 'descanso':
+            temp_inicio_pausa = f.timestamp
+        elif f.tipo == 'entrada' and temp_inicio_pausa:
+            segundos_pausa_cerrados += int((f.timestamp - temp_inicio_pausa).total_seconds())
+            temp_inicio_pausa = None
+
+    primera_entrada_hoy = next((f for f in fichajes_hoy if f.tipo == 'entrada'), None)
+    hora_inicio_jornada = primera_entrada_hoy.timestamp.isoformat() if primera_entrada_hoy else ""
     hora_inicio_pausa = ultimo_fichaje.timestamp.isoformat() if (ultimo_fichaje and estado == 'descanso') else ""
 
     if ultimo_fichaje and estado == 'entrada' and ultimo_fichaje.timestamp.date() < hoy:
@@ -112,8 +133,9 @@ def index():
                            user=user, 
                            estado=estado, 
                            historial=fichajes_usuario, 
-                           hora_inicio=hora_inicio_jornada, # Primera entrada del día
-                           hora_pausa=hora_inicio_pausa,    # Último fichaje de pausa
+                           hora_inicio=hora_inicio_jornada,
+                           hora_pausa=hora_inicio_pausa,
+                           total_segundos_pausa_cerrados=segundos_pausa_cerrados,
                            alerta_olvido=alerta_olvido)
 
 @app.route('/fichar/<tipo>', methods=['POST'])
@@ -238,3 +260,6 @@ if __name__ == '__main__':
             db.session.add(Usuario(nombre='admin', password='1234', rol='admin'))
             db.session.commit()
     app.run(debug=True)
+
+
+    

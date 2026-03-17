@@ -5,7 +5,7 @@
 
     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         
-        <div class="card" style="flex: 1; min-width: 300px; text-align: left;">
+        <div style="flex: 1; min-width: 300px;">
             <h2>Registro de Jornada</h2>
             
             {% if alerta_olvido %}
@@ -24,10 +24,19 @@
             </div>
 
             <div id="panel-pausa" style="display: none; background: #fff3cd; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #ffc107;">
-                <small style="color: #856404; display: block;">Tiempo de descanso actual (Máx 30min):</small>
+                <small style="color: #856404; display: block;">Tiempo de descanso actual:</small>
                 <span id="cronometro-pausa" style="font-size: 2rem; font-weight: bold; color: #856404;">00:00:00</span>
             </div>
-            
+
+            <div id="panel-acumulado-descanso" style="background: #f1f8f5; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #28a745;">
+                <small style="color: #155724; display: block;">Total descansado hoy (Máx 30min):</small>
+                <span id="acumulado-descanso" style="font-size: 1.2rem; font-weight: bold; color: #155724;">00:00:00</span>
+    
+                <div id="aviso-exceso" style="display: none; color: #dc3545; font-size: 0.8rem; font-weight: bold; margin-top: 5px;">
+                ⚠️ Has superado el total de 30 min de descanso permitidos por jornada.
+                </div>
+            </div>
+
             <div style="margin-bottom: 20px;">
                 <form action="/fichar/entrada" method="POST" style="display: inline;">
                     <button type="submit" class="btn btn-entrada" 
@@ -36,7 +45,7 @@
                     </button>
                 </form>
 
-                <form action="/fichar/descanso" method="POST" style="display: inline;">
+                <form action="/fichar/descanso" method="POST" style="display: inline;" onsubmit="return confirmarAccion('{{ '¿Finalizar el descanso y volver al trabajo?' if estado == 'descanso' else '¿Iniciar un descanso ahora?' }}')">
                     <button type="submit" 
                         class="btn {% if estado == 'descanso' %}btn-primary{% else %}btn-descanso{% endif %}" 
                         {% if estado != 'entrada' and estado != 'descanso' %} disabled {% endif %}>
@@ -44,81 +53,91 @@
                     </button>
                 </form>
 
-                <form action="/fichar/salida" method="POST" style="display: inline;">
+                <form action="/fichar/salida" method="POST" style="display: inline;" onsubmit="return confirmarAccion('¿Estás seguro de que quieres registrar la SALIDA y finalizar tu jornada?')">
                     <button type="submit" class="btn btn-salida" 
                         {% if estado != 'entrada' %} disabled {% endif %}>
                         Salida
                     </button>
                 </form>
+
             </div>
             <a href="/logout" style="color: #666; font-size: 0.9rem;">Cerrar sesión</a>
-			<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #ddd;">
-				<h4 style="margin-top: 0; color: #444; font-size: 1rem;">📅 Resumen de la Semana</h4>
-				<div style="display: flex; justify-content: space-between; align-items: center;">
-					<span style="color: #666;">Total acumulado:</span>
-					<span style="font-size: 1.2rem; font-weight: bold; color: #28a745;">{{ resumen_semanal }}</span>
-				</div>
-				<div style="background: #eee; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden;">
-					<div style="background: #28a745; width: 60%; height: 100%;"></div> 
-				</div>
-			</div>
+        </div>
 
-        <div class="card" style="flex: 1.5; min-width: 300px;">
+        <div style="flex: 1.5; min-width: 300px; background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
             <div id="calendar"></div>
         </div>
     </div>
 
     <script>
-        function actualizarReloj() {
-            const ahora = new Date();
-            document.getElementById('reloj').innerText = ahora.toLocaleTimeString('es-ES');
-        }
-        setInterval(actualizarReloj, 1000);
-        actualizarReloj();
-
-        // LÓGICA DE CRONÓMETROS
+        // Configuración de datos desde Flask
         const horaInicioJornada = "{{ hora_inicio }}";
         const horaInicioPausa = "{{ hora_pausa }}";
         const estadoActual = "{{ estado }}";
+        const baseSegundosPausaCerrada = {{ total_segundos_pausa_cerrados | default(0) }};
 
-        // 1. Cronómetro de Jornada Total
-        if (horaInicioJornada !== "" && estadoActual !== 'fuera' && estadoActual !== 'salida') {
-            const inicioJ = new Date(horaInicioJornada.replace(" ", "T"));
-            if (!isNaN(inicioJ.getTime())) {
-                document.getElementById('panel-cronometro').style.display = 'block';
-                iniciarContador(inicioJ, 'cronometro');
-            }
+        function confirmarAccion(mensaje) {
+            // Retorna true si el usuario pulsa "Aceptar", cancelando el envío si pulsa "Cancelar"
+            return confirm(mensaje);
+        }      
+        
+        function formatearTiempo(ms) {
+            const totalSegundos = Math.floor(ms / 1000);
+            const h = Math.floor(totalSegundos / 3600);
+            const m = Math.floor((totalSegundos % 3600) / 60);
+            const s = totalSegundos % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
-        // 2. Cronómetro de Pausa Individual
-        if (estadoActual === "descanso" && horaInicioPausa !== "") {
-            const inicioP = new Date(horaInicioPausa.replace(" ", "T"));
-            if (!isNaN(inicioP.getTime())) {
-                document.getElementById('panel-pausa').style.display = 'block';
-                iniciarContador(inicioP, 'cronometro-pausa');
-            }
-        }
+        function actualizarRelojes() {
+            const ahora = new Date();
+            
+            // 1. Reloj de hora actual
+            document.getElementById('reloj').innerText = ahora.toLocaleTimeString('es-ES');
 
-        function iniciarContador(inicio, elementId) {
-            const display = document.getElementById(elementId);
-            const t = setInterval(() => {
-                const ahora = new Date();
-                const diff = ahora - inicio;
-                const safeDiff = diff > 0 ? diff : 0;
-
-                const h = Math.floor(safeDiff / 3600000);
-                const m = Math.floor((safeDiff % 3600000) / 60000);
-                const s = Math.floor((safeDiff % 60000) / 1000);
-
-                display.innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-
-                if (elementId === 'cronometro-pausa' && safeDiff > 1800000) {
-                    display.style.color = "#dc3545"; 
+            // 2. Cronómetro de Jornada
+            if (horaInicioJornada !== "" && estadoActual !== 'fuera' && estadoActual !== 'salida') {
+                const inicioJ = new Date(horaInicioJornada);
+                const diffJ = ahora - inicioJ;
+                if (diffJ > 0) {
+                    document.getElementById('panel-cronometro').style.display = 'block';
+                    document.getElementById('cronometro').innerText = formatearTiempo(diffJ);
                 }
-            }, 1000);
+            }
+
+            // 3. Lógica de Pausas (Individual y Acumulada)
+            let segundosPausaHoy = baseSegundosPausaCerrada;
+
+            if (estadoActual === "descanso" && horaInicioPausa !== "") {
+                const inicioP = new Date(horaInicioPausa);
+                const diffP = ahora - inicioP;
+                if (diffP > 0) {
+                    document.getElementById('panel-pausa').style.display = 'block';
+                    document.getElementById('cronometro-pausa').innerText = formatearTiempo(diffP);
+                    
+                    // Sumamos la pausa activa al acumulado
+                    segundosPausaHoy += Math.floor(diffP / 1000);
+                }
+            } else {
+                document.getElementById('panel-pausa').style.display = 'none';
+            }
+
+            // Actualizar el acumulado total en pantalla
+            const displayAcumulado = document.getElementById('acumulado-descanso');
+            displayAcumulado.innerText = formatearTiempo(segundosPausaHoy * 1000);
+
+            // Alerta visual de 30 minutos (1800 segundos)
+            if (segundosPausaHoy > 1800) {
+                displayAcumulado.style.color = "#dc3545";
+                document.getElementById('aviso-exceso').style.display = 'block';
+            }
         }
 
-        // Lógica del Calendario
+        // Ejecución inicial y bucle
+        setInterval(actualizarRelojes, 1000);
+        actualizarRelojes();
+
+        // Configuración FullCalendar
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var calendar = new FullCalendar.Calendar(calendarEl, {
@@ -126,27 +145,17 @@
                 locale: 'es',
                 firstDay: 1,
                 height: 450,
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: ''
-                },
+                headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
                 events: [
                     {% for registro in historial %}
                     {
                         title: '{{ registro.tipo | capitalize }}',
                         start: '{{ registro.timestamp.strftime("%Y-%m-%dT%H:%M:%S") }}',
                         color: '{% if registro.tipo == "entrada" %}#28a745{% elif registro.tipo == "descanso" %}#ffc107{% else %}#dc3545{% endif %}',
-                        allDay: false
                     },
                     {% endfor %}
                 ],
-                eventTimeFormat: { 
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    meridiem: false,
-                    hour12: false
-                }
+                eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false }
             });
             calendar.render();
         });
