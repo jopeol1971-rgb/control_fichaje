@@ -1,0 +1,6 @@
+# Ignorar variables de entorno con credenciales
+.env
+
+# Ignorar carpetas de dependencias (según tu lenguaje)
+node_modules/
+__pycache__/
