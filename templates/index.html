@@ -3,159 +3,164 @@
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
 
-    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+    <div class="dashboard-grid">
         
-        <div style="flex: 1; min-width: 300px;">
-            <h2>Registro de Jornada</h2>
-            
-            {% if alerta_olvido %}
-            <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #f5c6cb;">
-                <strong>⚠️ Aviso:</strong> Tienes una jornada abierta de un día anterior. Por favor, cierra sesión y contacta con administración.
-            </div>
-            {% endif %}
+        <div class="column-actions">
+            <div class="card">
+                <div class="header-card">
+                    <h2>Registro de Jornada</h2>
+                    <div id="reloj" class="reloj-digital">00:00:00</div>
+                </div>
+                
+                {% if alerta_olvido %}
+                <div class="alerta-error">
+                    <strong>⚠️ Aviso:</strong> Tienes una jornada abierta de un día anterior. Por favor, cierra sesión y contacta con administración.
+                </div>
+                {% endif %}
 
-            <div id="reloj" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; color: #333;"></div>
-            
-            <p>Estado: <strong>{{ estado | capitalize }}</strong> | Usuario: <strong>{{ user.nombre }}</strong></p>
+                {% if estado != 'fuera' and estado != 'salida' %}
+                <div style="margin: 15px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.8rem; font-weight: bold; color: #475569;">Progreso Diario</span>
+                        <span style="font-size: 0.8rem; font-weight: bold; color: #10b981;">{{ progreso }}%</span>
+                    </div>
+                    <div style="background: #cbd5e1; border-radius: 20px; height: 10px; width: 100%; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, #10b981, #34d399); 
+                                    width: {{ progreso }}%; 
+                                    height: 100%; 
+                                    transition: width 1s ease-in-out;">
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
-            <div id="panel-cronometro" style="display: none; background: #e7f3ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #007bff;">
-                <small style="color: #555; display: block;">Tiempo total de jornada hoy:</small>
-                <span id="cronometro" style="font-size: 2rem; font-weight: bold; color: #007bff;">00:00:00</span>
-            </div>
+                <p class="user-status">
+                    Estado: <span class="badge {{ estado }}">{{ estado | capitalize }}</span> 
+                    | Usuario: <strong>{{ user.nombre }}</strong>
+                </p>
 
-            <div id="panel-pausa" style="display: none; background: #fff3cd; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #ffc107;">
-                <small style="color: #856404; display: block;">Tiempo de descanso actual:</small>
-                <span id="cronometro-pausa" style="font-size: 2rem; font-weight: bold; color: #856404;">00:00:00</span>
-            </div>
+                <div id="panel-cronometro" class="cronometro-box">
+                    <small>Tiempo total de jornada hoy:</small>
+                    <span id="cronometro">00:00:00</span>
+                </div>
 
-            <div id="panel-acumulado-descanso" style="background: #f1f8f5; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #28a745;">
-                <small style="color: #155724; display: block;">Total descansado hoy (Máx 30min):</small>
-                <span id="acumulado-descanso" style="font-size: 1.2rem; font-weight: bold; color: #155724;">00:00:00</span>
-    
-                <div id="aviso-exceso" style="display: none; color: #dc3545; font-size: 0.8rem; font-weight: bold; margin-top: 5px;">
-                ⚠️ Has superado el total de 30 min de descanso permitidos por jornada.
+                <div id="panel-pausa" class="cronometro-box pausa">
+                    <small>Tiempo de descanso actual:</small>
+                    <span id="cronometro-pausa">00:00:00</span>
+                </div>
+
+                <div id="panel-acumulado-descanso" class="cronometro-box acumulado">
+                    <small>Total descansado hoy (Máx 30min):</small>
+                    <span id="acumulado-descanso">00:00:00</span>
+                    <div id="aviso-exceso" class="texto-alerta" style="display: none;">
+                        ⚠️ Límite de 30 min superado.
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <form action="/fichar/entrada" method="POST">
+                        <button type="submit" class="btn btn-entrada" 
+                            {% if estado == 'entrada' or estado == 'descanso' %} disabled {% endif %}>
+                            Entrada
+                        </button>
+                    </form>
+
+                    <form action="/fichar/descanso" method="POST" onsubmit="return confirmarAccion('{{ '¿Finalizar el descanso?' if estado == 'descanso' else '¿Iniciar un descanso?' }}')">
+                        <button type="submit" 
+                            class="btn {% if estado == 'descanso' %}btn-entrada{% else %}btn-descanso{% endif %}" 
+                            {% if estado != 'entrada' and estado != 'descanso' %} disabled {% endif %}>
+                            {% if estado == 'descanso' %} Finalizar Pausa {% else %} Pausa {% endif %}
+                        </button>
+                    </form>
+
+                    <form action="/fichar/salida" method="POST" onsubmit="return confirmarAccion('¿Cerrar jornada?')">
+                        <button type="submit" class="btn btn-salida" 
+                            {% if estado != 'entrada' %} disabled {% endif %}>
+                            Salida
+                        </button>
+                    </form>
+                </div>
+
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="/logout" class="link-secundario">Cerrar sesión</a>
                 </div>
             </div>
-
-            <div style="margin-bottom: 20px;">
-                <form action="/fichar/entrada" method="POST" style="display: inline;">
-                    <button type="submit" class="btn btn-entrada" 
-                        {% if estado == 'entrada' or estado == 'descanso' %} disabled {% endif %}>
-                        Entrada
-                    </button>
-                </form>
-
-                <form action="/fichar/descanso" method="POST" style="display: inline;" onsubmit="return confirmarAccion('{{ '¿Finalizar el descanso y volver al trabajo?' if estado == 'descanso' else '¿Iniciar un descanso ahora?' }}')">
-                    <button type="submit" 
-                        class="btn {% if estado == 'descanso' %}btn-primary{% else %}btn-descanso{% endif %}" 
-                        {% if estado != 'entrada' and estado != 'descanso' %} disabled {% endif %}>
-                        {% if estado == 'descanso' %} ✅ Finalizar Pausa {% else %} Pausa {% endif %}
-                    </button>
-                </form>
-
-                <form action="/fichar/salida" method="POST" style="display: inline;" onsubmit="return confirmarAccion('¿Estás seguro de que quieres registrar la SALIDA y finalizar tu jornada?')">
-                    <button type="submit" class="btn btn-salida" 
-                        {% if estado != 'entrada' %} disabled {% endif %}>
-                        Salida
-                    </button>
-                </form>
-
-            </div>
-            <a href="/logout" style="color: #666; font-size: 0.9rem;">Cerrar sesión</a>
         </div>
 
-        <div style="flex: 1.5; min-width: 300px; background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee;">
-            <div id="calendar"></div>
+        <div class="column-calendar">
+            <div class="card">
+                <div id="calendar"></div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Configuración de datos desde Flask
         const horaInicioJornada = "{{ hora_inicio }}";
         const horaInicioPausa = "{{ hora_pausa }}";
         const estadoActual = "{{ estado }}";
         const baseSegundosPausaCerrada = {{ total_segundos_pausa_cerrados | default(0) }};
 
-        function confirmarAccion(mensaje) {
-            // Retorna true si el usuario pulsa "Aceptar", cancelando el envío si pulsa "Cancelar"
-            return confirm(mensaje);
-        }      
-        
+        function confirmarAccion(m) { return confirm(m); }
         function formatearTiempo(ms) {
-            const totalSegundos = Math.floor(ms / 1000);
-            const h = Math.floor(totalSegundos / 3600);
-            const m = Math.floor((totalSegundos % 3600) / 60);
-            const s = totalSegundos % 60;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            const sTotal = Math.floor(ms / 1000);
+            const h = Math.floor(sTotal / 3600);
+            const m = Math.floor((sTotal % 3600) / 60);
+            const s = sTotal % 60;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         }
 
         function actualizarRelojes() {
             const ahora = new Date();
-            
-            // 1. Reloj de hora actual
             document.getElementById('reloj').innerText = ahora.toLocaleTimeString('es-ES');
 
-            // 2. Cronómetro de Jornada
             if (horaInicioJornada !== "" && estadoActual !== 'fuera' && estadoActual !== 'salida') {
-                const inicioJ = new Date(horaInicioJornada);
-                const diffJ = ahora - inicioJ;
+                const diffJ = ahora - new Date(horaInicioJornada);
                 if (diffJ > 0) {
                     document.getElementById('panel-cronometro').style.display = 'block';
                     document.getElementById('cronometro').innerText = formatearTiempo(diffJ);
                 }
             }
 
-            // 3. Lógica de Pausas (Individual y Acumulada)
-            let segundosPausaHoy = baseSegundosPausaCerrada;
-
+            let segPausa = baseSegundosPausaCerrada;
             if (estadoActual === "descanso" && horaInicioPausa !== "") {
-                const inicioP = new Date(horaInicioPausa);
-                const diffP = ahora - inicioP;
+                const diffP = ahora - new Date(horaInicioPausa);
                 if (diffP > 0) {
                     document.getElementById('panel-pausa').style.display = 'block';
                     document.getElementById('cronometro-pausa').innerText = formatearTiempo(diffP);
-                    
-                    // Sumamos la pausa activa al acumulado
-                    segundosPausaHoy += Math.floor(diffP / 1000);
+                    segPausa += Math.floor(diffP / 1000);
                 }
             } else {
-                document.getElementById('panel-pausa').style.display = 'none';
+                if(document.getElementById('panel-pausa')) document.getElementById('panel-pausa').style.display = 'none';
             }
 
-            // Actualizar el acumulado total en pantalla
-            const displayAcumulado = document.getElementById('acumulado-descanso');
-            displayAcumulado.innerText = formatearTiempo(segundosPausaHoy * 1000);
-
-            // Alerta visual de 30 minutos (1800 segundos)
-            if (segundosPausaHoy > 1800) {
-                displayAcumulado.style.color = "#dc3545";
-                document.getElementById('aviso-exceso').style.display = 'block';
+            const dispAcum = document.getElementById('acumulado-descanso');
+            if (dispAcum) {
+                dispAcum.innerText = formatearTiempo(segPausa * 1000);
+                if (segPausa > 1800) {
+                    dispAcum.style.color = "#ef4444";
+                    document.getElementById('aviso-exceso').style.display = 'block';
+                }
             }
         }
-
-        // Ejecución inicial y bucle
         setInterval(actualizarRelojes, 1000);
         actualizarRelojes();
 
-        // Configuración FullCalendar
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'es',
-                firstDay: 1,
-                height: 450,
+                height: 500,
                 headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
                 events: [
-                    {% for registro in historial %}
+                    {% for r in historial %}
                     {
-                        title: '{{ registro.tipo | capitalize }}',
-                        start: '{{ registro.timestamp.strftime("%Y-%m-%dT%H:%M:%S") }}',
-                        color: '{% if registro.tipo == "entrada" %}#28a745{% elif registro.tipo == "descanso" %}#ffc107{% else %}#dc3545{% endif %}',
+                        title: '{{ r.tipo | capitalize }}',
+                        start: '{{ r.timestamp.strftime("%Y-%m-%dT%H:%M:%S") }}',
+                        color: '{% if r.tipo == "entrada" %}#10b981{% elif r.tipo == "descanso" %}#f59e0b{% else %}#ef4444{% endif %}',
                     },
                     {% endfor %}
-                ],
-                eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false }
+                ]
             });
             calendar.render();
         });

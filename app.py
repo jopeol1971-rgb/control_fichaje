@@ -1,15 +1,33 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, Response
-from datetime import datetime, timedelta
-from models import db, Usuario, Fichaje
+import os
 import csv
 from io import StringIO
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, flash, session, Response
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+from models import db, Usuario, Fichaje
+from werkzeug.security import check_password_hash
+
+# 1. CARGA DE CONFIGURACIÓN
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'clave_secreta_para_sesiones'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///fichajes.db'
+# Prioriza la clave del .env, si no existe usa una por defecto
+app.secret_key = os.getenv('SECRET_KEY', 'clave_secreta_para_sesiones')
+
+# 2. CONFIGURACIÓN DE POSTGRESQL
+# Corrección necesaria: SQLAlchemy requiere 'postgresql://' en lugar de 'postgres://'
+uri = os.getenv("DATABASE_URL")
+if uri and uri.startswith("postgres://"):
+    uri = uri.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# 3. INICIALIZACIÓN
 db.init_app(app)
+
+# --- LÓGICA DE CÁLCULO ---
 
 def calcular_horas_diarias(fichajes):
     resumen = {}
@@ -27,7 +45,6 @@ def calcular_horas_diarias(fichajes):
         entrada_principal = next((e.timestamp for e in eventos if e.tipo == 'entrada'), None)
         salida_principal = next((e.timestamp for e in reversed(eventos) if e.tipo == 'salida'), None)
         
-        # --- Lógica de Descansos ---
         inicio_descanso = None
         for e in eventos:
             if e.tipo == 'descanso':
@@ -36,16 +53,13 @@ def calcular_horas_diarias(fichajes):
                 datos['total_pausa'] += (e.timestamp - inicio_descanso)
                 inicio_descanso = None
         
-        # Si sigue en descanso hoy, sumamos el tiempo transcurrido hasta "ahora"
         if inicio_descanso and fecha == ahora.strftime('%Y-%m-%d'):
             datos['total_pausa'] += (ahora - inicio_descanso)
 
-        # Formateamos el tiempo de pausa para que sea legible (HH:MM:SS)
         datos['total_pausa_str'] = str(datos['total_pausa']).split('.')[0]
         datos['pausa'] = datos['total_pausa_str']
         limite = timedelta(minutes=30)
 
-        # --- Cálculos y Alertas ---
         if entrada_principal:
             fin_calculo = salida_principal if salida_principal else ahora
             duracion_jornada = fin_calculo - entrada_principal
@@ -54,7 +68,6 @@ def calcular_horas_diarias(fichajes):
             datos['entrada'] = entrada_principal
             datos['salida'] = salida_principal
             
-            # Validación de límite de pausa para la alerta del admin
             if datos['total_pausa'] > limite:
                 datos['observaciones'] = f"⚠️ Exceso pausa: {datos['total_pausa_str']} (Máx 30min)"
                 datos['alerta'] = True
@@ -70,20 +83,28 @@ def calcular_horas_diarias(fichajes):
             
     return resumen
 
-# --- RUTAS ---
+# --- RUTAS DE LA APLICACIÓN ---
+
+from werkzeug.security import check_password_hash
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         nombre = request.form.get('nombre')
-        password = request.form.get('password')
-        user = Usuario.query.filter_by(nombre=nombre, password=password).first()
-        if user:
+        password_ingresada = request.form.get('password')
+
+        # 1. Buscamos al usuario SOLO por su nombre
+        user = Usuario.query.filter_by(nombre=nombre).first()
+
+        # 2. Verificamos si el usuario existe Y si la contraseña coincide con el hash
+        if user and check_password_hash(user.password, password_ingresada):
             session['user_id'] = user.id
+            session['rol'] = user.rol  # Guardamos el rol para las rutas de admin
             flash(f'Bienvenido a Superpekes, {user.nombre}')
             return redirect(url_for('index'))
         else:
             flash('Usuario o contraseña incorrectos')
+            
     return render_template('login.html')
 
 @app.route('/logout')
@@ -106,13 +127,13 @@ def index():
     
     estado = ultimo_fichaje.tipo if ultimo_fichaje else 'fuera'
     alerta_olvido = False
-    hoy = datetime.now().date()
+    ahora = datetime.now()
+    hoy = ahora.date()
     
-    # Lógica para cronómetros de hoy
     fichajes_hoy = [f for f in fichajes_usuario if f.timestamp.date() == hoy]
     fichajes_hoy.sort(key=lambda x: x.timestamp)
 
-    # Calcular segundos de pausas ya FINALIZADAS hoy
+    # --- LÓGICA DE PAUSAS Y TIEMPO TRABAJADO ---
     segundos_pausa_cerrados = 0
     temp_inicio_pausa = None
     for f in fichajes_hoy:
@@ -123,6 +144,28 @@ def index():
             temp_inicio_pausa = None
 
     primera_entrada_hoy = next((f for f in fichajes_hoy if f.tipo == 'entrada'), None)
+    
+    # --- CÁLCULO DEL PROGRESO ---
+    progreso = 0
+    if primera_entrada_hoy:
+        # Tiempo total desde la primera entrada hasta ahora (en segundos)
+        segundos_desde_inicio = int((ahora - primera_entrada_hoy.timestamp).total_seconds())
+        
+        # Si está actualmente en pausa, sumamos el tiempo de la pausa abierta
+        pausa_actual = 0
+        if estado == 'descanso' and ultimo_fichaje:
+            pausa_actual = int((ahora - ultimo_fichaje.timestamp).total_seconds())
+        
+        # Tiempo real trabajado = Total - (Pausas cerradas + Pausa actual)
+        segundos_trabajados = segundos_desde_inicio - (segundos_pausa_cerrados + pausa_actual)
+        
+        # Objetivo diario (Horas contratadas / 5 días a la semana) convertido a segundos
+        segundos_objetivo_diario = (user.horas_contratadas / 5) * 3600
+        
+        if segundos_objetivo_diario > 0:
+            progreso = min((segundos_trabajados / segundos_objetivo_diario) * 100, 100)
+
+    # Variables para el template
     hora_inicio_jornada = primera_entrada_hoy.timestamp.isoformat() if primera_entrada_hoy else ""
     hora_inicio_pausa = ultimo_fichaje.timestamp.isoformat() if (ultimo_fichaje and estado == 'descanso') else ""
 
@@ -136,7 +179,8 @@ def index():
                            hora_inicio=hora_inicio_jornada,
                            hora_pausa=hora_inicio_pausa,
                            total_segundos_pausa_cerrados=segundos_pausa_cerrados,
-                           alerta_olvido=alerta_olvido)
+                           alerta_olvido=alerta_olvido,
+                           progreso=round(progreso, 1)) # Enviamos el progreso redondeado
 
 @app.route('/fichar/<tipo>', methods=['POST'])
 def registrar_fichaje(tipo):
@@ -219,20 +263,35 @@ def admin_informe():
 def nuevo_empleado():
     user_id = session.get('user_id')
     user = db.session.get(Usuario, user_id)
+    
     if not user or user.rol != 'admin':
         return redirect(url_for('index'))
 
     if request.method == 'POST':
         nombre = request.form.get('nombre')
-        password = request.form.get('password')
+        password_plana = request.form.get('password')
         rol = request.form.get('rol')
+        # Obtenemos las horas del formulario (por defecto 40 si viene vacío)
+        horas = request.form.get('horas_contratadas', 40, type=float)
+
         if Usuario.query.filter_by(nombre=nombre).first():
             flash("El nombre de usuario ya existe.")
         else:
-            db.session.add(Usuario(nombre=nombre, password=password, rol=rol))
+            # Creamos el objeto usuario
+            nuevo_usuario = Usuario(
+                nombre=nombre, 
+                rol=rol, 
+                horas_contratadas=horas
+            )
+            # USAMOS EL MÉTODO DEL MODELO: Cifra la contraseña antes de guardar
+            nuevo_usuario.set_password(password_plana)
+            
+            db.session.add(nuevo_usuario)
             db.session.commit()
-            flash(f"Empleado {nombre} creado.")
+            
+            flash(f"Empleado {nombre} creado con {horas}h contratadas.")
             return redirect(url_for('admin_panel'))
+            
     return render_template('nuevo_empleado.html')
 
 @app.route('/admin/corregir_fichaje', methods=['POST'])
@@ -253,13 +312,16 @@ def corregir_fichaje():
         flash("Registro corregido con éxito.")
     return redirect(url_for('admin_panel'))
 
+# --- ARRANQUE DE LA APLICACIÓN ---
+
 if __name__ == '__main__':
     with app.app_context():
+        # Crea tablas en Postgres si no existen
         db.create_all()
+        # Semilla inicial para el administrador
         if not Usuario.query.filter_by(nombre='admin').first():
             db.session.add(Usuario(nombre='admin', password='1234', rol='admin'))
             db.session.commit()
+            print("Base de datos PostgreSQL inicializada con usuario admin.")
+            
     app.run(debug=True)
-
-
-    

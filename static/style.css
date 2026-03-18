@@ -1,7 +1,6 @@
 /* --- CONFIGURACIÓN DE PÁGINA --- */
 body { 
-    font-family: 'Segoe UI', Roboto, sans-serif; 
-    /* Quitamos el centrado absoluto para que el contenido fluya hacia abajo */
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
     display: block; 
     min-height: 100vh; 
     background: #f0f4f8; 
@@ -10,7 +9,22 @@ body {
     color: #334155;
 }
 
-/* --- CONTENEDORES (Reemplaza o mejora tu .card) --- */
+/* --- LAYOUT Y GRID --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr; /* Columna de control y columna de calendario */
+    gap: 25px;
+    margin-top: 20px;
+}
+
+/* Responsive para tablets y móviles */
+@media (max-width: 900px) {
+    .dashboard-grid { 
+        grid-template-columns: 1fr; 
+    }
+}
+
+/* --- CONTENEDORES --- */
 .card { 
     background: white; 
     padding: 1.5rem; 
@@ -34,7 +48,9 @@ body {
     text-transform: uppercase;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    text-decoration: none;
 }
 
 .btn:hover:not(:disabled) {
@@ -43,62 +59,207 @@ body {
     filter: brightness(1.1);
 }
 
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
 .btn:disabled {
     background: #cbd5e0 !important;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
 }
 
-/* --- COLORES DE ESTADO (Mantenemos tus nombres pero mejoramos el tono) --- */
-.btn-entrada, .entrada { background: #10b981; } /* Un verde más vivo */
-.btn-salida, .salida { background: #ef4444; }   /* Un rojo más moderno */
-.btn-descanso, .descanso { background: #f59e0b; color: white; } /* Ámbar con texto blanco */
+/* Botonera en el index */
+.button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+}
 
-/* --- CRONÓMETROS --- */
-#panel-cronometro, #panel-pausa {
-    padding: 15px;
-    border-radius: 10px;
+@media (max-width: 480px) {
+    .button-group { grid-template-columns: 1fr; }
+}
+
+/* --- COLORES DE ESTADO --- */
+.btn-entrada, .entrada { background: #10b981; } /* Esmeralda */
+.btn-salida, .salida { background: #ef4444; }   /* Rojo soft */
+.btn-descanso, .descanso { background: #f59e0b; color: white; } /* Ámbar */
+.btn-primary { background: #3b82f6; } /* Azul para volver de pausa */
+
+/* --- PANELES DE TIEMPO Y CRONÓMETROS --- */
+.cronometro-box {
+    padding: 20px;
+    border-radius: 12px;
     margin-bottom: 15px;
-    border-left: 5px solid;
+    text-align: center;
+    border-left: 6px solid #3b82f6;
+    background: #f0f7ff;
+    transition: all 0.3s ease;
 }
 
-#panel-cronometro {
-    background: #eff6ff;
-    border-color: #3b82f6;
-    color: #1e40af;
+.cronometro-box span { 
+    font-size: 2.5rem; 
+    font-weight: 800; 
+    display: block; 
+    font-variant-numeric: tabular-nums; /* Evita que los números "salten" */
 }
 
-#panel-pausa {
-    background: #fffbeb;
-    border-color: #f59e0b;
+.cronometro-box small {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Variantes de cronómetro */
+.cronometro-box.pausa { 
+    border-left-color: #f59e0b; 
+    background: #fffbeb; 
     color: #92400e;
 }
 
-/* --- BADGES (Para el historial) --- */
-.badge {
-    padding: 5px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: bold;
-    text-transform: uppercase;
+.cronometro-box.acumulado { 
+    border-left-color: #10b981; 
+    background: #f0fdf4; 
+    color: #166534;
 }
 
-/* --- NAVEGACIÓN Y MENSAJES --- */
-nav { 
-    background: white;
-    padding: 10px 20px;
+.reloj-digital { 
+    font-size: 1.8rem; 
+    font-weight: bold; 
+    color: #1e293b; 
+    background: #f8fafc;
+    padding: 5px 15px;
     border-radius: 8px;
-    margin-bottom: 20px;
+}
+
+/* --- ESPECÍFICO PARA LOGIN --- */
+.login-wrapper {
     display: flex;
-    justify-content: flex-end;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box; /* Importante para que el padding no estire el input */
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* --- ELEMENTOS DE UI --- */
+.badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+}
+
+.header-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.user-status {
+    margin: 15px 0;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .mensaje { 
-    padding: 10px;
-    border-radius: 6px;
+    padding: 12px;
+    border-radius: 8px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     color: #64748b; 
     margin-top: 1rem; 
+    font-size: 0.9rem;
+}
+
+.alerta-error {
+    background-color: #fef2f2;
+    color: #b91c1c;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border: 1px solid #fee2e2;
+    font-size: 0.9rem;
+}
+
+.texto-alerta { 
+    color: #ef4444; 
+    font-weight: bold; 
+    margin-top: 8px; 
+    font-size: 0.85rem; 
+}
+
+/* --- NAVEGACIÓN ACTUALIZADA --- */
+nav { 
+    background: white;
+    padding: 10px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center; /* Centra verticalmente logo y links */
+    justify-content: space-between; /* Logo a la izquierda, links a la derecha */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.nav-logo-container {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.nav-logo {
+    height: 40px; /* Tamaño ideal para la barra superior */
+    width: auto;
+    transition: transform 0.2s ease;
+}
+
+.nav-logo:hover {
+    transform: scale(1.05);
+}
+
+.nav-links {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.link-secundario { 
+    color: #64748b; 
+    text-decoration: none; 
+    font-size: 0.9rem; 
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.link-secundario:hover { 
+    color: #1e293b;
+    text-decoration: underline; 
 }

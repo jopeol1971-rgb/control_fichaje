@@ -1,57 +1,39 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
- <style>
-    /* Estilos base para todos los botones */
-    .btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: bold;
-        text-decoration: none;
-        display: inline-block;
-        transition: opacity 0.3s;
-    }
-
-    .btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-
-    /* Colores específicos */
-    .btn-entrada {
-        background-color: #28a745; /* Verde */
-        color: white;
-    }
-
-    .btn-descanso {
-        background-color: #ffc107; /* Amarillo/Dorado */
-        color: #333;
-    }
-
-    .btn-salida {
-        background-color: #dc3545; /* Rojo */
-        color: white;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Fichaje - Superpekes</title>
     
-    /* Efecto al pasar el ratón */
-    .btn:hover:not(:disabled) {
-        filter: brightness(90%);
-    }
-</style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
 </head>
 <body>
-    <div class="card">
+
+    {% if session.get('user_id') %}
+    <nav style="display: flex; align-items: center; padding: 10px 20px; background: white; border-bottom: 1px solid #eee;">
+        <a href="{{ url_for('index') }}" style="margin-right: auto; display: flex; align-items: center;">
+            <img src="{{ url_for('static', filename='img/logo_superpekes.png') }}" 
+                 alt="Logo Superpekes" 
+                 style="height: 40px; width: auto;">
+        </a>
+        
+        <a href="{{ url_for('index') }}" class="link-secundario" style="margin-right: 15px;">Inicio</a>
+        <a href="/logout" class="link-secundario">Cerrar sesión</a>
+    </nav>
+    {% endif %}
+
+    <main class="container">
         {% block content %}{% endblock %}
 
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             {% for message in messages %}
-              <p class="mensaje">{{ message }}</p>
+              <div class="mensaje">{{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
-    </div>
+    </main>
+
 </body>
 </html>

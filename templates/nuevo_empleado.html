@@ -1,25 +1,44 @@
 {% extends "base.html" %}
+
 {% block content %}
-    <h2>Registrar Nuevo Empleado</h2>
-    
-    <form method="POST" style="max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 8px; border: 1px solid #eee;">
-        <div style="margin-bottom: 15px;">
-            <label>Nombre de Usuario:</label>
-            <input type="text" name="nombre" required style="width: 100%; padding: 8px; margin-top: 5px;">
-        </div>
-        <div style="margin-bottom: 15px;">
-            <label>Contraseña:</label>
-            <input type="password" name="password" required style="width: 100%; padding: 8px; margin-top: 5px;">
-        </div>
-        <div style="margin-bottom: 15px;">
-            <label>Rol:</label>
-            <select name="rol" style="width: 100%; padding: 8px; margin-top: 5px;">
-                <option value="empleado">Empleado</option>
-                <option value="admin">Administrador</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-entrada" style="width: 100%;">Crear Usuario</button>
-        <br><br>
-        <a href="/admin/panel" style="display: block; text-align: center; color: #666;">Cancelar</a>
-    </form>
+<div class="login-wrapper">
+    <div class="card login-card">
+        <h2>Registrar Nuevo Empleado</h2>
+        
+        <form method="POST">
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label>Nombre de Usuario:</label>
+                <input type="text" name="nombre" class="form-input" placeholder="Ej: joaquin_sp" required autofocus>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label>Contraseña:</label>
+                <input type="password" name="password" class="form-input" placeholder="Contraseña inicial" required>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label>Horas Semanales Contratadas:</label>
+                <input type="number" name="horas_contratadas" step="0.5" class="form-input" value="40.0" required>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 20px;">
+                <label>Rol del Sistema:</label>
+                <select name="rol" class="form-input">
+                    <option value="empleado">Empleado</option>
+                    <option value="admin">Administrador</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-entrada" style="width: 100%;">
+                Crear Usuario
+            </button>
+        </form>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        
+        <a href="{{ url_for('admin_panel') }}" class="link-secundario">
+            Cancelar y volver
+        </a>
+    </div>
+</div>
 {% endblock %}
