@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="login-wrapper">
+    <div class="card" style="max-width: 500px; width: 90%;">
+        <h2>Añadir Horas Pasadas</h2>
+        <p style="color: #64748b; margin-bottom: 20px;">Utiliza este formulario si olvidaste fichar en su momento.</p>
+        
+        <form method="POST">
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Fecha del trabajo:</label>
+                <input type="date" name="fecha" class="form-input" required 
+                       value="{{ hoy }}">
+            </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">¿Cuántas horas trabajaste?</label>
+                <input type="number" name="horas" step="0.5" min="0.5" max="15" class="form-input" placeholder="Ej: 4.5" required>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 20px;">
+                <label style="font-weight: bold; display: block; margin-bottom: 5px;">Notas / Actividad:</label>
+                <textarea name="comentario" class="form-input" style="height: 80px;" placeholder="Ej: Taller de manualidades o excursión..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-entrada" style="width: 100%; margin-bottom: 10px;">
+                GUARDAR HORAS EN MI BOLSA
+            </button>
+            
+            <a href="{{ url_for('index') }}" class="link-secundario" style="display: block; text-align: center;">
+                Cancelar y volver
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

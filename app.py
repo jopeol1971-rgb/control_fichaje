@@ -140,10 +140,40 @@ def index():
     ahora = datetime.now()
     hoy = ahora.date()
     
+    # --- 1. LÓGICA DE BOLSA SEMANAL (Nueva) ---
+    inicio_semana = ahora - timedelta(days=ahora.weekday())
+    inicio_semana = inicio_semana.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Obtenemos fichajes de la semana ordenados
+    fichajes_semana = [f for f in fichajes_usuario if f.timestamp >= inicio_semana]
+    fichajes_semana.sort(key=lambda x: x.timestamp)
+    
+    total_segundos_semana = 0
+    temp_entrada_semana = None
+    
+    for f in fichajes_semana:
+        if f.tipo == 'entrada':
+            temp_entrada_semana = f.timestamp
+        elif f.tipo == 'salida' and temp_entrada_semana:
+            total_segundos_semana += (f.timestamp - temp_entrada_semana).total_seconds()
+            temp_entrada_semana = None
+        elif f.tipo == 'descanso' and temp_entrada_semana:
+            # Si entra en descanso, sumamos lo trabajado hasta ese momento
+            total_segundos_semana += (f.timestamp - temp_entrada_semana).total_seconds()
+            temp_entrada_semana = None
+            
+    # Si actualmente está trabajando (entrada activa), sumamos el tiempo actual
+    if estado == 'entrada' and ultimo_fichaje:
+        total_segundos_semana += (ahora - ultimo_fichaje.timestamp).total_seconds()
+
+    horas_totales_semana = round(total_segundos_semana / 3600, 1)
+    objetivo_semanal = 20 # Meta para el monitor
+    porc_semanal = min(int((horas_totales_semana / objetivo_semanal) * 100), 100)
+
+    # --- 2. LÓGICA DIARIA EXISTENTE ---
     fichajes_hoy = [f for f in fichajes_usuario if f.timestamp.date() == hoy]
     fichajes_hoy.sort(key=lambda x: x.timestamp)
 
-    # --- LÓGICA DE PAUSAS Y TIEMPO TRABAJADO ---
     segundos_pausa_cerrados = 0
     temp_inicio_pausa = None
     for f in fichajes_hoy:
@@ -155,27 +185,19 @@ def index():
 
     primera_entrada_hoy = next((f for f in fichajes_hoy if f.tipo == 'entrada'), None)
     
-    # --- CÁLCULO DEL PROGRESO ---
     progreso = 0
     if primera_entrada_hoy:
-        # Tiempo total desde la primera entrada hasta ahora (en segundos)
         segundos_desde_inicio = int((ahora - primera_entrada_hoy.timestamp).total_seconds())
-        
-        # Si está actualmente en pausa, sumamos el tiempo de la pausa abierta
         pausa_actual = 0
         if estado == 'descanso' and ultimo_fichaje:
             pausa_actual = int((ahora - ultimo_fichaje.timestamp).total_seconds())
         
-        # Tiempo real trabajado = Total - (Pausas cerradas + Pausa actual)
         segundos_trabajados = segundos_desde_inicio - (segundos_pausa_cerrados + pausa_actual)
-        
-        # Objetivo diario (Horas contratadas / 5 días a la semana) convertido a segundos
         segundos_objetivo_diario = (user.horas_contratadas / 5) * 3600
         
         if segundos_objetivo_diario > 0:
             progreso = min((segundos_trabajados / segundos_objetivo_diario) * 100, 100)
 
-    # Variables para el template
     hora_inicio_jornada = primera_entrada_hoy.timestamp.isoformat() if primera_entrada_hoy else ""
     hora_inicio_pausa = ultimo_fichaje.timestamp.isoformat() if (ultimo_fichaje and estado == 'descanso') else ""
 
@@ -190,7 +212,9 @@ def index():
                            hora_pausa=hora_inicio_pausa,
                            total_segundos_pausa_cerrados=segundos_pausa_cerrados,
                            alerta_olvido=alerta_olvido,
-                           progreso=round(progreso, 1)) # Enviamos el progreso redondeado
+                           progreso=round(progreso, 1),
+                           horas_totales_semana=horas_totales_semana, # Para la tarjeta nueva
+                           porc_semanal=porc_semanal) # Para la barra nueva
 
 @app.route('/fichar/<tipo>', methods=['POST'])
 def registrar_fichaje(tipo):
@@ -221,6 +245,57 @@ def registrar_fichaje(tipo):
     
     flash(f'{mensaje} a las {datetime.now().strftime("%H:%M:%S")}.')
     return redirect(url_for('index'))
+
+from datetime import datetime, timedelta
+
+@app.route('/fichaje_manual', methods=['GET', 'POST'])
+def fichaje_manual():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        fecha_str = request.form.get('fecha')
+        horas = request.form.get('horas', type=float)
+        comentario = request.form.get('comentario')
+
+        if not fecha_str or not horas:
+            flash("⚠️ Indica fecha y horas.")
+            return redirect(url_for('fichaje_manual'))
+
+        # Calculamos los timestamps
+        # Entrada a las 09:00, salida según las horas trabajadas
+        entrada_dt = datetime.strptime(f"{fecha_str} 09:00:00", "%Y-%m-%d %H:%M:%S")
+        salida_dt = entrada_dt + timedelta(hours=horas)
+
+        try:
+            # 1. Creamos el evento de ENTRADA
+            f_entrada = Fichaje(
+                usuario_id=session['user_id'], # <-- Nombre correcto según tu models.py
+                tipo='entrada',
+                timestamp=entrada_dt,
+                motivo_edicion=f"Manual: {comentario}"
+            )
+            # 2. Creamos el evento de SALIDA
+            f_salida = Fichaje(
+                usuario_id=session['user_id'],
+                tipo='salida',
+                timestamp=salida_dt,
+                motivo_edicion=f"Manual: {comentario}"
+            )
+
+            db.session.add(f_entrada)
+            db.session.add(f_salida)
+            db.session.commit()
+            
+            flash(f"✅ Registradas {horas}h el día {fecha_str}")
+            return redirect(url_for('index'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f"❌ Error: {str(e)}")
+            return redirect(url_for('fichaje_manual'))
+
+    return render_template('fichaje_manual.html', hoy=datetime.now().strftime('%Y-%m-%d'))
 
 @app.route('/admin/panel')
 def admin_panel():
@@ -286,50 +361,61 @@ def admin_informe():
 
 @app.route('/admin/nuevo_empleado', methods=['GET', 'POST'])
 def nuevo_empleado():
-    user_id = session.get('user_id')
-    user = db.session.get(Usuario, user_id)
-    
-    if not user or user.rol != 'admin':
+    # Solo el admin puede entrar aquí
+    if session.get('rol') != 'admin':
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        nombre = request.form.get('nombre')
-        apellidos = request.form.get('apellidos')
+        # 1. Recoger y limpiar datos
+        nombre = request.form.get('nombre', '').strip()
+        apellidos = request.form.get('apellidos', '').strip()
+        dni = request.form.get('dni', '').strip().upper()  # Forzamos mayúsculas
+        nass = request.form.get('nass', '').strip()
+        email = request.form.get('email', '').strip().lower() # Forzamos minúsculas
+        telefono = request.form.get('telefono', '').strip()
+        direccion = request.form.get('direccion', '').strip()
         password_plana = request.form.get('password')
-        rol = request.form.get('rol')
-        dni = request.form.get('dni')
-        nass = request.form.get('nass')
-        email = request.form.get('email')
-        telefono = request.form.get('telefono')
-        direccion = request.form.get('direccion')
-        horas = request.form.get('horas_contratadas', 40, type=float)
+        rol = request.form.get('rol', 'empleado')
+        horas = request.form.get('horas_contratadas', 40.0, type=float)
 
-        # Validación: El nombre y el DNI son obligatorios
-        if not nombre or not dni:
-            flash("Nombre y DNI son campos obligatorios.")
+        # 2. Validación de campos obligatorios
+        if not nombre or not dni or not nass or not password_plana:
+            flash("⚠️ Error: Nombre, DNI, NASS y Contraseña son obligatorios.")
             return redirect(url_for('nuevo_empleado'))
 
+        # 3. Comprobar si ya existen en la base de datos
         if Usuario.query.filter_by(dni=dni).first():
-            flash("Ya existe un usuario con ese DNI.")
-        else:
+            flash(f"⚠️ El DNI {dni} ya está registrado.")
+            return redirect(url_for('nuevo_empleado'))
+            
+        if Usuario.query.filter_by(nass=nass).first():
+            flash(f"⚠️ El NASS {nass} ya pertenece a otro empleado.")
+            return redirect(url_for('nuevo_empleado'))
+
+        # 4. Intentar guardar en la base de datos
+        try:
             nuevo_usuario = Usuario(
                 nombre=nombre,
                 apellidos=apellidos,
-                rol=rol,
                 dni=dni,
                 nass=nass,
-                email=email,
-                telefono=telefono,
-                direccion=direccion,
-                horas_contratadas=horas
+                email=email if email else None,
+                telefono=telefono if telefono else None,
+                direccion=direccion if direccion else None,
+                horas_contratadas=horas,
+                rol=rol
             )
             nuevo_usuario.set_password(password_plana)
             
             db.session.add(nuevo_usuario)
             db.session.commit()
-            
-            flash(f"Empleado {nombre} {apellidos} creado correctamente.")
+            flash(f"✅ Empleado {nombre} registrado correctamente.")
             return redirect(url_for('admin_panel'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f"❌ Error al guardar en la base de datos: {str(e)}")
+            return redirect(url_for('nuevo_empleado'))
             
     return render_template('nuevo_empleado.html')
 
