@@ -2,23 +2,56 @@
 
 {% block content %}
 <div class="login-wrapper">
-    <div class="card login-card">
-        <h2>Registrar Nuevo Empleado</h2>
+    <div class="card login-card" style="max-width: 600px;"> <h2>Registrar Nuevo Empleado</h2>
         
         <form method="POST">
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label>Nombre de Usuario:</label>
-                <input type="text" name="nombre" class="form-input" placeholder="Ej: joaquin_sp" required autofocus>
+            <div style="display: flex; gap: 15px;">
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>Nombre:</label>
+                    <input type="text" name="nombre" class="form-input" placeholder="Ej: Joaquín" required autofocus>
+                </div>
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>Apellidos:</label>
+                    <input type="text" name="apellidos" class="form-input" placeholder="Ej: García Pérez">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>DNI o NIE:</label>
+                    <input type="text" name="dni" class="form-input" placeholder="12345678X" required>
+                </div>
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>Contraseña Inicial:</label>
+                    <input type="password" name="password" class="form-input" placeholder="Contraseña" required>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>Correo Electrónico:</label>
+                    <input type="email" name="email" class="form-input" placeholder="empleado@correo.com">
+                </div>
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>Teléfono:</label>
+                    <input type="text" name="telefono" class="form-input" placeholder="600 000 000">
+                </div>
             </div>
 
             <div style="text-align: left; margin-bottom: 15px;">
-                <label>Contraseña:</label>
-                <input type="password" name="password" class="form-input" placeholder="Contraseña inicial" required>
+                <label>Dirección completa:</label>
+                <input type="text" name="direccion" class="form-input" placeholder="Calle, Número, Piso, Ciudad">
             </div>
 
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label>Horas Semanales Contratadas:</label>
-                <input type="number" name="horas_contratadas" step="0.5" class="form-input" value="40.0" required>
+            <div style="display: flex; gap: 15px;">
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>Nº Seguridad Social:</label>
+                    <input type="text" name="nass" class="form-input" placeholder="Ej: 281234567890">
+                </div>
+                <div style="flex: 1; text-align: left; margin-bottom: 15px;">
+                    <label>Horas Semanales:</label>
+                    <input type="number" name="horas_contratadas" step="0.5" class="form-input" value="40.0" required>
+                </div>
             </div>
 
             <div style="text-align: left; margin-bottom: 20px;">

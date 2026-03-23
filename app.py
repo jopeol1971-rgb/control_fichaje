@@ -42,9 +42,11 @@ def calcular_horas_diarias(fichajes):
     for fecha, datos in resumen.items():
         eventos = sorted(datos['eventos'], key=lambda x: x.timestamp)
         
+        # Identificamos el primer y último punto del día
         entrada_principal = next((e.timestamp for e in eventos if e.tipo == 'entrada'), None)
         salida_principal = next((e.timestamp for e in reversed(eventos) if e.tipo == 'salida'), None)
         
+        # Mantenemos el cálculo de la pausa solo para información/auditoría
         inicio_descanso = None
         for e in eventos:
             if e.tipo == 'descanso':
@@ -61,22 +63,27 @@ def calcular_horas_diarias(fichajes):
         limite = timedelta(minutes=30)
 
         if entrada_principal:
+            # Si hoy no ha salido todavía, contamos hasta la hora actual
             fin_calculo = salida_principal if salida_principal else ahora
+            
+            # --- MODIFICACIÓN AQUÍ: La jornada es el tiempo total sin restar pausas ---
             duracion_jornada = fin_calculo - entrada_principal
-            horas_netas = duracion_jornada - datos['total_pausa']
-            datos['total_horas'] = str(horas_netas).split('.')[0]
+            datos['total_horas'] = str(duracion_jornada).split('.')[0] 
+            # -----------------------------------------------------------------------
+            
             datos['entrada'] = entrada_principal
             datos['salida'] = salida_principal
             
+            # Mantenemos la alerta visual por si te interesa saber si descansaron de más
             if datos['total_pausa'] > limite:
-                datos['observaciones'] = f"⚠️ Exceso pausa: {datos['total_pausa_str']} (Máx 30min)"
+                datos['observaciones'] = f"⚠️ Pausa larga: {datos['total_pausa_str']}"
                 datos['alerta'] = True
             else:
                 datos['observaciones'] = f"Pausa: {datos['total_pausa_str']}"
                 datos['alerta'] = False
         else:
             datos['total_horas'] = "Pendiente"
-            datos['observaciones'] = "Sin entrada principal"
+            datos['observaciones'] = "Sin entrada"
             datos['alerta'] = False
             datos['entrada'] = None
             datos['salida'] = None
@@ -90,20 +97,23 @@ from werkzeug.security import check_password_hash
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        nombre = request.form.get('nombre')
+        dni_ingresado = request.form.get('dni')
         password_ingresada = request.form.get('password')
 
-        # 1. Buscamos al usuario SOLO por su nombre
-        user = Usuario.query.filter_by(nombre=nombre).first()
+        # 1. Buscamos al usuario por su DNI
+        user = Usuario.query.filter_by(dni=dni_ingresado).first()
 
-        # 2. Verificamos si el usuario existe Y si la contraseña coincide con el hash
+        # 2. Verificamos usuario y contraseña
         if user and check_password_hash(user.password, password_ingresada):
             session['user_id'] = user.id
-            session['rol'] = user.rol  # Guardamos el rol para las rutas de admin
+            session['rol'] = user.rol
+            
             flash(f'Bienvenido a Superpekes, {user.nombre}')
+            
+            # Independientemente del rol, enviamos a la pantalla de fichaje
             return redirect(url_for('index'))
         else:
-            flash('Usuario o contraseña incorrectos')
+            flash('DNI o contraseña incorrectos')
             
     return render_template('login.html')
 
@@ -231,15 +241,30 @@ def exportar_csv():
     fichajes = Fichaje.query.all()
     si = StringIO()
     cw = csv.writer(si)
-    cw.writerow(['ID', 'Usuario', 'Tipo', 'Fecha y Hora', 'IP Origen', 'Editado por Admin', 'Motivo de Corrección'])
+    
+    # 1. Cabecera actualizada con campos legales
+    cw.writerow([
+        'ID Fichaje', 'Empleado', 'DNI/NIE', 'Nº Seg. Social', 
+        'Tipo', 'Fecha y Hora', 'IP Origen', 
+        'Editado por Admin', 'Motivo de Corrección'
+    ])
     
     for f in fichajes:
+        # 2. Obtenemos los datos del usuario relacionado con el fichaje
         cw.writerow([
-            f.id, f.usuario.nombre, f.tipo, 
-            f.timestamp.strftime('%Y-%m-%d %H:%M:%S'), f.ip_origen,
+            f.id, 
+            f.usuario.nombre, 
+            f.usuario.dni if f.usuario.dni else "N/A", 
+            f.usuario.nass if f.usuario.nass else "N/A",
+            f.tipo, 
+            f.timestamp.strftime('%Y-%m-%d %H:%M:%S'), 
+            f.ip_origen,
             "SÍ" if f.editado_por_admin else "NO",
             f.motivo_edicion if f.motivo_edicion else ""
         ])
+    
+    return Response(si.getvalue(), mimetype="text/csv",
+                    headers={"Content-disposition": "attachment; filename=informe_fichajes_legal.csv"})
     
     return Response(si.getvalue(), mimetype="text/csv",
                     headers={"Content-disposition": "attachment; filename=informe_fichajes.csv"})
@@ -269,27 +294,41 @@ def nuevo_empleado():
 
     if request.method == 'POST':
         nombre = request.form.get('nombre')
+        apellidos = request.form.get('apellidos')
         password_plana = request.form.get('password')
         rol = request.form.get('rol')
-        # Obtenemos las horas del formulario (por defecto 40 si viene vacío)
+        dni = request.form.get('dni')
+        nass = request.form.get('nass')
+        email = request.form.get('email')
+        telefono = request.form.get('telefono')
+        direccion = request.form.get('direccion')
         horas = request.form.get('horas_contratadas', 40, type=float)
 
-        if Usuario.query.filter_by(nombre=nombre).first():
-            flash("El nombre de usuario ya existe.")
+        # Validación: El nombre y el DNI son obligatorios
+        if not nombre or not dni:
+            flash("Nombre y DNI son campos obligatorios.")
+            return redirect(url_for('nuevo_empleado'))
+
+        if Usuario.query.filter_by(dni=dni).first():
+            flash("Ya existe un usuario con ese DNI.")
         else:
-            # Creamos el objeto usuario
             nuevo_usuario = Usuario(
-                nombre=nombre, 
-                rol=rol, 
+                nombre=nombre,
+                apellidos=apellidos,
+                rol=rol,
+                dni=dni,
+                nass=nass,
+                email=email,
+                telefono=telefono,
+                direccion=direccion,
                 horas_contratadas=horas
             )
-            # USAMOS EL MÉTODO DEL MODELO: Cifra la contraseña antes de guardar
             nuevo_usuario.set_password(password_plana)
             
             db.session.add(nuevo_usuario)
             db.session.commit()
             
-            flash(f"Empleado {nombre} creado con {horas}h contratadas.")
+            flash(f"Empleado {nombre} {apellidos} creado correctamente.")
             return redirect(url_for('admin_panel'))
             
     return render_template('nuevo_empleado.html')
@@ -316,12 +355,33 @@ def corregir_fichaje():
 
 if __name__ == '__main__':
     with app.app_context():
-        # Crea tablas en Postgres si no existen
+        # 1. Crea las tablas en Postgres con la nueva estructura (DNI, NASS, etc.)
         db.create_all()
-        # Semilla inicial para el administrador
-        if not Usuario.query.filter_by(nombre='admin').first():
-            db.session.add(Usuario(nombre='admin', password='1234', rol='admin'))
+        
+        # 2. Definimos el DNI ficticio para el acceso del administrador
+        admin_dni = '00000000T'
+        
+        # 3. Verificamos si ya existe el administrador por su DNI
+        if not Usuario.query.filter_by(dni=admin_dni).first():
+            # Creamos el objeto con los nuevos campos requeridos
+            admin_inicial = Usuario(
+                nombre='Admin',
+                apellidos='Sistema',
+                dni=admin_dni,          # Este será tu "usuario" en el login
+                nass='000000000000',
+                rol='admin',
+                horas_contratadas=40.0,
+                email='admin@superpekes.com'
+            )
+            
+            # IMPORTANTE: Usamos set_password para que la clave '1234' se guarde 
+            # como un hash seguro. Si pones password='1234', el login fallará.
+            admin_inicial.set_password('1234')
+            
+            db.session.add(admin_inicial)
             db.session.commit()
-            print("Base de datos PostgreSQL inicializada con usuario admin.")
+            print(f"Base de datos inicializada. Admin creado (DNI: {admin_dni}, Pass: 1234)")
+        else:
+            print("El usuario administrador ya existe en la base de datos.")
             
     app.run(debug=True)

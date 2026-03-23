@@ -19,6 +19,10 @@
         </a>
         
         <a href="{{ url_for('index') }}" class="link-secundario" style="margin-right: 15px;">Inicio</a>
+        
+        {% if session.get('rol') == 'admin' %}
+        <a href="{{ url_for('admin_panel') }}" class="link-secundario" style="margin-right: 15px; color: #d9534f; font-weight: bold;">Panel Admin</a>
+        {% endif %}
         <a href="/logout" class="link-secundario">Cerrar sesión</a>
     </nav>
     {% endif %}

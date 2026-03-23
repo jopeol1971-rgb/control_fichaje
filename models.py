@@ -7,12 +7,23 @@ db = SQLAlchemy()
 class Usuario(db.Model):
     __tablename__ = 'usuario'
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(100), unique=True, nullable=False)
-    # Aumentamos a 255 para guardar el hash seguro
-    password = db.Column(db.String(255), nullable=False)
+    
+    # --- Datos Identificativos ---
+    nombre = db.Column(db.String(50), nullable=False)
+    apellidos = db.Column(db.String(100), nullable=True)
+    dni = db.Column(db.String(20), unique=True, nullable=False)  # DNI/NIE (Obligatorio para legalidad)
+    nass = db.Column(db.String(20), unique=True, nullable=True)  # Seguridad Social
+    
+    # --- Contacto y Ubicación ---
+    email = db.Column(db.String(120), unique=True, nullable=True)
+    telefono = db.Column(db.String(20), nullable=True)
+    direccion = db.Column(db.String(255), nullable=True)
+    
+    # --- Configuración Laboral y Acceso ---
+    # Cambiado a nullable=False para asegurar que siempre haya un cálculo de progreso
+    horas_contratadas = db.Column(db.Float, nullable=False, default=40.0) 
     rol = db.Column(db.String(20), default='empleado')
-    # Horas semanales o mensuales según prefieras (ej. 40.0)
-    horas_contratadas = db.Column(db.Float, nullable=True, default=40.0)
+    password = db.Column(db.String(255), nullable=False)
 
     def set_password(self, password_plana):
         """Crea un hash irreversible de la contraseña."""

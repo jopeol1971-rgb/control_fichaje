@@ -9,7 +9,7 @@
         
         <form method="POST">
             <div style="margin-bottom: 10px;">
-                <input type="text" name="nombre" placeholder="Nombre de usuario/a" required class="form-input">
+                <input type="text" name="dni" placeholder="DNI / NIE" required class="form-input" autofocus>
             </div>
             <div style="margin-bottom: 15px;">
                 <input type="password" name="password" placeholder="Contraseña" required class="form-input">
@@ -24,7 +24,9 @@
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             {% for message in messages %}
-              <div class="mensaje">{{ message }}</div>
+              <div class="mensaje" style="margin-top: 15px; color: #ef4444; font-size: 0.9rem;">
+                  {{ message }}
+              </div>
             {% endfor %}
           {% endif %}
         {% endwith %}

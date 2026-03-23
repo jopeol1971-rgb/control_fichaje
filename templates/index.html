@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js"></script>
     <div class="dashboard-grid">
         
         <div class="column-actions">
@@ -150,7 +152,9 @@
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'es',
-                height: 500,
+                firstDay: 1,          // Lunes como primer día
+                height: 'auto',       // Elimina el scroll interno
+                dayMaxEvents: 2,      // Agrupa eventos si hay más de 2 (evita que crezca la celda)
                 headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
                 events: [
                     {% for r in historial %}
