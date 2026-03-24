@@ -140,11 +140,10 @@ def index():
     ahora = datetime.now()
     hoy = ahora.date()
     
-    # --- 1. LÓGICA DE BOLSA SEMANAL (Nueva) ---
+    # --- 1. LÓGICA DE BOLSA SEMANAL ---
     inicio_semana = ahora - timedelta(days=ahora.weekday())
     inicio_semana = inicio_semana.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Obtenemos fichajes de la semana ordenados
     fichajes_semana = [f for f in fichajes_usuario if f.timestamp >= inicio_semana]
     fichajes_semana.sort(key=lambda x: x.timestamp)
     
@@ -158,16 +157,14 @@ def index():
             total_segundos_semana += (f.timestamp - temp_entrada_semana).total_seconds()
             temp_entrada_semana = None
         elif f.tipo == 'descanso' and temp_entrada_semana:
-            # Si entra en descanso, sumamos lo trabajado hasta ese momento
             total_segundos_semana += (f.timestamp - temp_entrada_semana).total_seconds()
             temp_entrada_semana = None
             
-    # Si actualmente está trabajando (entrada activa), sumamos el tiempo actual
     if estado == 'entrada' and ultimo_fichaje:
         total_segundos_semana += (ahora - ultimo_fichaje.timestamp).total_seconds()
 
     horas_totales_semana = round(total_segundos_semana / 3600, 1)
-    objetivo_semanal = 20 # Meta para el monitor
+    objetivo_semanal = 20 
     porc_semanal = min(int((horas_totales_semana / objetivo_semanal) * 100), 100)
 
     # --- 2. LÓGICA DIARIA EXISTENTE ---
@@ -201,9 +198,11 @@ def index():
     hora_inicio_jornada = primera_entrada_hoy.timestamp.isoformat() if primera_entrada_hoy else ""
     hora_inicio_pausa = ultimo_fichaje.timestamp.isoformat() if (ultimo_fichaje and estado == 'descanso') else ""
 
-    if ultimo_fichaje and estado == 'entrada' and ultimo_fichaje.timestamp.date() < hoy:
+    # --- 3. ALERTA DE OLVIDO (Informativa) ---
+    if ultimo_fichaje and estado in ['entrada', 'descanso'] and ultimo_fichaje.timestamp.date() < hoy:
         alerta_olvido = True
 
+    # --- 4. RETORNO SIN BLOQUEO ---
     return render_template('index.html', 
                            user=user, 
                            estado=estado, 
@@ -213,15 +212,18 @@ def index():
                            total_segundos_pausa_cerrados=segundos_pausa_cerrados,
                            alerta_olvido=alerta_olvido,
                            progreso=round(progreso, 1),
-                           horas_totales_semana=horas_totales_semana, # Para la tarjeta nueva
-                           porc_semanal=porc_semanal) # Para la barra nueva
+                           horas_totales_semana=horas_totales_semana,
+                           porc_semanal=porc_semanal,
+                           bloqueado=False) # <--- Forzamos siempre False para permitir fichar
 
 @app.route('/fichar/<tipo>', methods=['POST'])
 def registrar_fichaje(tipo):
     user_id = session.get('user_id')
+    ahora = datetime.now()
     ultimo = Fichaje.query.filter_by(usuario_id=user_id).order_by(Fichaje.timestamp.desc()).first()
     ultimo_tipo = ultimo.tipo if ultimo else 'salida'
 
+    # Lógica de mensajes
     if tipo == 'descanso' and ultimo_tipo == 'descanso':
         tipo = 'entrada'
         mensaje = "Fin de descanso. ¡A seguir!"
@@ -230,23 +232,26 @@ def registrar_fichaje(tipo):
     else:
         mensaje = f"Registro de {tipo} completado."
 
-    if tipo == 'entrada' and ultimo_tipo == 'entrada':
-        flash("Ya tienes una entrada activa.")
+    # Si es una entrada y ya hay una activa del mismo día, avisamos
+    if tipo == 'entrada' and ultimo_tipo == 'entrada' and ultimo.timestamp.date() == ahora.date():
+        flash("Ya tienes una entrada activa para hoy.")
         return redirect(url_for('index'))
 
+    # Creamos el fichaje
     nuevo_fichaje = Fichaje(
         usuario_id=user_id,
         tipo=tipo,
-        timestamp=datetime.now(),
-        ip_origen=request.remote_addr
+        timestamp=ahora,
+        ip_origen=request.remote_addr,
+        # Si es una salida de un olvido, lo marcamos como pendiente para el admin
+        estado='pendiente' if (ultimo and ultimo.timestamp.date() < ahora.date()) else 'aprobado'
     )
+    
     db.session.add(nuevo_fichaje)
     db.session.commit()
     
-    flash(f'{mensaje} a las {datetime.now().strftime("%H:%M:%S")}.')
+    flash(f'{mensaje} a las {ahora.strftime("%H:%M:%S")}.')
     return redirect(url_for('index'))
-
-from datetime import datetime, timedelta
 
 @app.route('/fichaje_manual', methods=['GET', 'POST'])
 def fichaje_manual():
@@ -262,32 +267,31 @@ def fichaje_manual():
             flash("⚠️ Indica fecha y horas.")
             return redirect(url_for('fichaje_manual'))
 
-        # Calculamos los timestamps
-        # Entrada a las 09:00, salida según las horas trabajadas
         entrada_dt = datetime.strptime(f"{fecha_str} 09:00:00", "%Y-%m-%d %H:%M:%S")
         salida_dt = entrada_dt + timedelta(hours=horas)
 
         try:
-            # 1. Creamos el evento de ENTRADA
+            # Creamos los fichajes con estado 'pendiente'
             f_entrada = Fichaje(
-                usuario_id=session['user_id'], # <-- Nombre correcto según tu models.py
+                usuario_id=session['user_id'],
                 tipo='entrada',
                 timestamp=entrada_dt,
-                motivo_edicion=f"Manual: {comentario}"
+                motivo_edicion=f"Manual: {comentario}",
+                estado='pendiente'  # <-- Nuevo: Requiere validación
             )
-            # 2. Creamos el evento de SALIDA
             f_salida = Fichaje(
                 usuario_id=session['user_id'],
                 tipo='salida',
                 timestamp=salida_dt,
-                motivo_edicion=f"Manual: {comentario}"
+                motivo_edicion=f"Manual: {comentario}",
+                estado='pendiente'  # <-- Nuevo: Requiere validación
             )
 
             db.session.add(f_entrada)
             db.session.add(f_salida)
             db.session.commit()
             
-            flash(f"✅ Registradas {horas}h el día {fecha_str}")
+            flash(f"✅ Horas enviadas a revisión. Registradas {horas}h el día {fecha_str}")
             return redirect(url_for('index'))
             
         except Exception as e:
@@ -429,12 +433,58 @@ def corregir_fichaje():
 
     f_id = request.form.get('fichaje_id')
     fichaje = db.session.get(Fichaje, f_id)
+    
     if fichaje:
-        fichaje.timestamp = datetime.strptime(request.form.get('nueva_fecha_hora'), '%Y-%m-%dT%H:%M')
+        nueva_fecha_hora = request.form.get('nueva_fecha_hora')
+        nuevo_motivo_admin = request.form.get('motivo')
+        
+        # 1. Conservamos la nota original si existe
+        nota_original = fichaje.motivo_edicion if fichaje.motivo_edicion else "Sin nota inicial"
+        
+        # 2. Actualizamos los datos
+        fichaje.timestamp = datetime.strptime(nueva_fecha_hora, '%Y-%m-%dT%H:%M')
         fichaje.editado_por_admin = True
-        fichaje.motivo_edicion = request.form.get('motivo')
+        fichaje.estado = 'aprobado' # Forzamos la aprobación al corregir
+        
+        # 3. Concatenamos ambos textos para que no se pierda nada
+        fichaje.motivo_edicion = f"Original: {nota_original} | Corrección Admin: {nuevo_motivo_admin}"
+        
         db.session.commit()
-        flash("Registro corregido con éxito.")
+        flash("Registro corregido y aprobado conservando historial.")
+        
+    return redirect(url_for('admin_panel'))
+
+@app.route('/admin/validar_fichaje/<int:f_id>/<accion>', methods=['POST'])
+def validar_fichaje(f_id, accion):
+    if session.get('rol') != 'admin':
+        flash("Acceso restringido.")
+        return redirect(url_for('index'))
+    
+    fichaje = db.session.get(Fichaje, f_id)
+    if not fichaje:
+        flash("Fichaje no encontrado.")
+        return redirect(url_for('admin_panel'))
+
+    if accion == 'aprobar':
+        fichaje.estado = 'aprobado'
+        flash(f"✅ Fichaje de {fichaje.usuario.nombre} aprobado.")
+        
+    elif accion == 'modificar':
+        # Leemos la nueva fecha/hora del formulario
+        nueva_fecha_hora = request.form.get('nueva_fecha_hora')
+        nuevo_motivo = request.form.get('motivo')
+        
+        if nueva_fecha_hora:
+            # Actualizamos el timestamp y lo marcamos como aprobado y editado
+            fichaje.timestamp = datetime.strptime(nueva_fecha_hora, '%Y-%m-%dT%H:%M')
+            fichaje.estado = 'aprobado'
+            fichaje.editado_por_admin = True
+            fichaje.motivo_edicion = f"Corregido por admin: {nuevo_motivo}"
+            flash(f"📝 Fichaje de {fichaje.usuario.nombre} corregido y aprobado.")
+        else:
+            flash("⚠️ Debes indicar una fecha y hora para modificar.")
+
+    db.session.commit()
     return redirect(url_for('admin_panel'))
 
 # --- ARRANQUE DE LA APLICACIÓN ---

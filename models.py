@@ -40,6 +40,10 @@ class Fichaje(db.Model):
     tipo = db.Column(db.String(20), nullable=False) # 'entrada', 'salida', 'descanso'
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     ip_origen = db.Column(db.String(45))
+
+    # --- NUEVO CAMPO PARA VALIDACIÓN ---
+    # Estados posibles: 'aprobado', 'pendiente', 'rechazado'
+    estado = db.Column(db.String(20), nullable=False, default='aprobado')
     
     # --- CAMPOS PARA AUDITORÍA ---
     editado_por_admin = db.Column(db.Boolean, default=False)

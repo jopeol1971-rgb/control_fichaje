@@ -5,71 +5,71 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js"></script>
 
     <div class="dashboard-grid">
-        
         <div class="column-actions">
-    <div style="margin-bottom: 20px; padding: 5px 10px; border-left: 4px solid #6366f1; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-        <h2 style="font-size: 1.3rem; color: #1e293b; margin: 0; font-weight: 700;">
-            Hola, <span style="color: #6366f1;">{{ user.nombre }}</span> 👋
-        </h2>
-    </div>
+            <div style="margin-bottom: 20px; padding: 5px 10px; border-left: 4px solid #6366f1; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <h2 style="font-size: 1.3rem; color: #1e293b; margin: 0; font-weight: 700;">
+                    Hola, <span style="color: #6366f1;">{{ user.nombre }}</span> 👋
+                </h2>
+            </div>
 
-    <div class="card" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; margin-bottom: 20px; border: none;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Mi Bolsa Semanal</h4>
-                <div style="font-size: 2.2rem; font-weight: 800; margin: 5px 0;">
-                    {{ horas_totales_semana | default('0.0') }} 
-                    <span style="font-size: 1rem; opacity: 0.7; font-weight: 400;">/ {{ user.horas_contratadas }}h</span>
+            <div class="card" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; margin-bottom: 20px; border: none;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Mi Bolsa Semanal</h4>
+                        <div style="font-size: 2.2rem; font-weight: 800; margin: 5px 0;">
+                            {{ horas_totales_semana | default('0.0') }} 
+                            <span style="font-size: 1rem; opacity: 0.7; font-weight: 400;">/ {{ user.horas_contratadas }}h</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;">
+                            {{ porc_semanal | default(0) }}%
+                        </span>
+                    </div>
                 </div>
-            </div>
-            <div style="text-align: right;">
-                <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;">
-                    {{ porc_semanal | default(0) }}%
-                </span>
-            </div>
-        </div>
-        
-        <div style="background: rgba(255,255,255,0.1); height: 12px; border-radius: 10px; margin-top: 15px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
-            <div style="background: linear-gradient(90deg, #10b981, #34d399); 
-                        width: {{ porc_semanal | default(0) }}%; 
-                        height: 100%; 
-                        border-radius: 10px;
-                        transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);">
-            </div>
-        </div>
-        
-        {% if porc_semanal >= 100 %}
-        <p style="margin: 10px 0 0 0; font-size: 0.75rem; color: #34d399; font-weight: bold;">
-            🎉 ¡Objetivo semanal completado!
-        </p>
-        {% endif %}
-    </div>
-
-    <div class="card">
-        <div class="header-card">
-            <h2 style="font-size: 1.2rem;">Registro de Jornada</h2>
-            <div id="reloj" class="reloj-digital">00:00:00</div>
-        </div>
-        
-        {% if alerta_olvido %}
-        <div class="alerta-error">
-            <strong>⚠️ Atención:</strong> Tienes un registro sin cerrar de un día anterior. Por favor, contacta con administración.
-        </div>
-        {% endif %}
-
-        <div style="margin: 15px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                <span style="font-size: 0.75rem; font-weight: bold; color: #475569;">Progreso Diario</span>
-                <span style="font-size: 0.75rem; font-weight: bold; color: #10b981;">{{ progreso }}%</span>
-            </div>
-            <div style="background: #cbd5e1; border-radius: 20px; height: 8px; width: 100%; overflow: hidden;">
-                <div style="background: linear-gradient(90deg, #6366f1, #818cf8); 
-                            width: {{ progreso }}%; 
-                            height: 100%; 
-                            transition: width 1s ease-in-out;">
+                
+                <div style="background: rgba(255,255,255,0.1); height: 12px; border-radius: 10px; margin-top: 15px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="background: linear-gradient(90deg, #10b981, #34d399); 
+                                width: {{ porc_semanal | default(0) }}%; 
+                                height: 100%; 
+                                border-radius: 10px;
+                                transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);">
+                    </div>
                 </div>
+                
+                {% if porc_semanal >= 100 %}
+                <p style="margin: 10px 0 0 0; font-size: 0.75rem; color: #34d399; font-weight: bold;">
+                    🎉 ¡Objetivo semanal completado!
+                </p>
+                {% endif %}
             </div>
-        </div>
+
+            <div class="card">
+                <div class="header-card">
+                    <h2 style="font-size: 1.2rem;">Registro de Jornada</h2>
+                    <div id="reloj" class="reloj-digital">00:00:00</div>
+                </div>
+                
+                {% if alerta_olvido %}
+                <div class="alerta-error" style="background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <strong>⚠️ Nota:</strong> No se cerró la jornada anterior. Registra tu <strong>Salida</strong> ahora para regularizarlo; administración ajustará el horario después.
+                </div>
+                {% endif %}
+
+                <div style="margin: 15px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.75rem; font-weight: bold; color: #475569;">Progreso Diario</span>
+                        <span style="font-size: 0.75rem; font-weight: bold; color: #10b981;">{{ progreso }}%</span>
+                    </div>
+                    <div style="background: #cbd5e1; border-radius: 20px; height: 8px; width: 100%; overflow: hidden;">
+                        <div style="background: linear-gradient(90deg, #6366f1, #818cf8); 
+                                    width: {{ progreso }}%; 
+                                    height: 100%; 
+                                    transition: width 1s ease-in-out;">
+                        </div>
+                    </div>
+                </div>
+
                 <p class="user-status">
                     Estado: <span class="badge {{ estado }}">{{ estado | capitalize }}</span> 
                 </p>
@@ -96,14 +96,14 @@
                         <button type="submit" 
                             class="btn {% if estado == 'descanso' %}btn-entrada{% else %}btn-descanso{% endif %}" 
                             style="width: 100%;"
-                            {% if estado != 'entrada' and estado != 'descanso' %} disabled {% endif %}>
+                            {% if (estado != 'entrada' and estado != 'descanso') %} disabled {% endif %}>
                             {% if estado == 'descanso' %} Fin Pausa {% else %} Pausa {% endif %}
                         </button>
                     </form>
 
                     <form action="/fichar/salida" method="POST" style="width: 100%;" onsubmit="return confirmarAccion('¿Cerrar jornada?')">
                         <button type="submit" class="btn btn-salida" style="width: 100%;"
-                            {% if estado != 'entrada' %} disabled {% endif %}>
+                            {% if estado == 'fuera' or estado == 'salida' %} disabled {% endif %}>
                             Salida
                         </button>
                     </form>
@@ -126,6 +126,7 @@
     </div>
 
     <script>
+        // ... (Tu script de JavaScript se mantiene igual, ya funciona correctamente)
         const horaInicioJornada = "{{ hora_inicio }}";
         const horaInicioPausa = "{{ hora_pausa }}";
         const estadoActual = "{{ estado }}";
@@ -141,7 +142,8 @@
 
         function actualizarRelojes() {
             const ahora = new Date();
-            document.getElementById('reloj').innerText = ahora.toLocaleTimeString('es-ES');
+            const elReloj = document.getElementById('reloj');
+            if (elReloj) elReloj.innerText = ahora.toLocaleTimeString('es-ES');
 
             if (horaInicioJornada !== "" && estadoActual !== 'fuera' && estadoActual !== 'salida') {
                 const diffJ = ahora - new Date(horaInicioJornada);
@@ -174,9 +176,9 @@
                 events: [
                     {% for r in historial %}
                     {
-                        title: '{{ r.tipo | capitalize }}',
+                        title: '{{ r.tipo | capitalize }}{% if r.estado == "pendiente" %} (⌛){% endif %}',
                         start: '{{ r.timestamp.strftime("%Y-%m-%dT%H:%M:%S") }}',
-                        color: '{% if r.tipo == "entrada" %}#10b981{% elif r.tipo == "descanso" %}#f59e0b{% else %}#ef4444{% endif %}',
+                        color: '{% if r.estado == "pendiente" %}#94a3b8{% elif r.tipo == "entrada" %}#10b981{% elif r.tipo == "descanso" %}#f59e0b{% else %}#ef4444{% endif %}',
                     },
                     {% endfor %}
                 ]
