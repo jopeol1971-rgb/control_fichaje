@@ -4,6 +4,50 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js"></script>
 
+    <style>
+        /* Contenedor principal para mantener columnas lado a lado */
+        .dashboard-grid {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: nowrap; /* Evita que el calendario baje */
+        }
+
+        .column-actions {
+            flex: 1;
+            min-width: 380px; /* Ancho mínimo para que los botones no se amontonen */
+        }
+
+        .column-calendar {
+            flex: 2;
+            min-width: 500px;
+        }
+
+        /* Estilo para que los números no "bailen" */
+        .num-cronometro {
+            font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+            letter-spacing: 0.5px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Limita la altura de las casillas del calendario */
+        .fc-daygrid-day-frame {
+            max-height: 100px;
+            overflow: hidden;
+        }
+
+        /* Ajuste para pantallas pequeñas */
+        @media (max-width: 1000px) {
+            .dashboard-grid {
+                flex-direction: column;
+            }
+            .column-actions, .column-calendar {
+                width: 100%;
+                min-width: 100%;
+            }
+        }
+    </style>
+
     <div class="dashboard-grid">
         <div class="column-actions">
             <div style="margin-bottom: 20px; padding: 5px 10px; border-left: 4px solid #6366f1; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
@@ -15,7 +59,7 @@
             <div class="card" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; margin-bottom: 20px; border: none;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Mi Bolsa Semanal</h4>
+                        <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Balance Semanal</h4>
                         <div style="font-size: 2.2rem; font-weight: 800; margin: 5px 0;">
                             {{ horas_totales_semana | default('0.0') }} 
                             <span style="font-size: 1rem; opacity: 0.7; font-weight: 400;">/ {{ user.horas_contratadas }}h</span>
@@ -27,108 +71,93 @@
                         </span>
                     </div>
                 </div>
-                
                 <div style="background: rgba(255,255,255,0.1); height: 12px; border-radius: 10px; margin-top: 15px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="background: linear-gradient(90deg, #10b981, #34d399); 
-                                width: {{ porc_semanal | default(0) }}%; 
-                                height: 100%; 
-                                border-radius: 10px;
-                                transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);">
-                    </div>
+                    <div style="background: linear-gradient(90deg, #10b981, #34d399); width: {{ porc_semanal | default(0) }}%; height: 100%; border-radius: 10px; transition: width 1.5s ease;"></div>
                 </div>
-                
-                {% if porc_semanal >= 100 %}
-                <p style="margin: 10px 0 0 0; font-size: 0.75rem; color: #34d399; font-weight: bold;">
-                    🎉 ¡Objetivo semanal completado!
-                </p>
-                {% endif %}
             </div>
 
             <div class="card">
-                <div class="header-card">
-                    <h2 style="font-size: 1.2rem;">Registro de Jornada</h2>
-                    <div id="reloj" class="reloj-digital">00:00:00</div>
+                <div class="header-card" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="font-size: 1.2rem; margin: 0;">Gestión de Turno</h2>
+                    <div id="reloj" class="reloj-digital num-cronometro" style="font-weight: bold; color: #64748b;">00:00:00</div>
                 </div>
                 
                 {% if alerta_olvido %}
-                <div class="alerta-error" style="background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <strong>⚠️ Nota:</strong> No se cerró la jornada anterior. Registra tu <strong>Salida</strong> ahora para regularizarlo; administración ajustará el horario después.
+                <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 0.85rem;">
+                    <strong>Atención:</strong> Tienes un fichaje abierto del día anterior. Pulsa <strong>Salida</strong> para cerrar el ciclo.
                 </div>
                 {% endif %}
 
                 <div style="margin: 15px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                        <span style="font-size: 0.75rem; font-weight: bold; color: #475569;">Progreso Diario</span>
-                        <span style="font-size: 0.75rem; font-weight: bold; color: #10b981;">{{ progreso }}%</span>
+                        <span style="font-size: 0.75rem; font-weight: bold; color: #475569;">Estado de la jornada</span>
+                        <span style="font-size: 0.75rem; font-weight: bold; color: #10b981;">{{ progreso }}% completado</span>
                     </div>
                     <div style="background: #cbd5e1; border-radius: 20px; height: 8px; width: 100%; overflow: hidden;">
-                        <div style="background: linear-gradient(90deg, #6366f1, #818cf8); 
-                                    width: {{ progreso }}%; 
-                                    height: 100%; 
-                                    transition: width 1s ease-in-out;">
+                        <div style="background: linear-gradient(90deg, #6366f1, #818cf8); width: {{ progreso }}%; height: 100%; transition: width 1s;"></div>
+                    </div>
+                </div>
+
+                <p class="user-status" style="margin-bottom: 15px;">
+                    Actualmente estás en: <span class="badge {{ estado }}">{{ estado | capitalize }}</span> 
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                    <div id="panel-cronometro" class="cronometro-box" style="display: none; background: #f0fdf4; border: 1px solid #dcfce7; padding: 10px; border-radius: 8px;">
+                        <small style="color: #166534; font-weight: bold; display: block; font-size: 0.65rem;">TIEMPO TRABAJADO HOY:</small>
+                        <span id="cronometro" class="num-cronometro" style="color: #166534; font-size: 1.6rem; font-weight: 800;">00:00:00</span>
+                    </div>
+
+                    <div id="panel-pausa" class="cronometro-box pausa" style="display: none; background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: 8px; transition: all 0.3s ease;">
+                        <div id="contenedor-pausa-actual" style="display: none; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed rgba(180, 83, 9, 0.3);">
+                            <small style="color: #b45309; font-weight: bold; display: block; font-size: 0.65rem;">PAUSA ACTUAL:</small>
+                            <span id="cronometro-pausa-actual" class="num-cronometro" style="color: #b45309; font-size: 1.2rem; font-weight: 700;">00:00:00</span>
+                        </div>
+                        
+                        <div>
+                            <small style="color: #92400e; font-weight: bold; display: block; font-size: 0.65rem;">DESCANSO TOTAL ACUMULADO HOY:</small>
+                            <span id="cronometro-pausa-total" class="num-cronometro" style="color: #92400e; font-size: 1.4rem; font-weight: 800;">00:00:00</span>
+                        </div>
+                        <div id="aviso-pausa" style="display: none; font-size: 0.7rem; font-weight: bold; margin-top: 6px; color: #b91c1c;">
+                            ⚠️ AVISO: Has excedido el tiempo de descanso recomendado.
                         </div>
                     </div>
                 </div>
 
-                <p class="user-status">
-                    Estado: <span class="badge {{ estado }}">{{ estado | capitalize }}</span> 
-                </p>
+                <div class="button-group" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <form action="/fichar/entrada" method="POST">
+                        <button type="submit" class="btn btn-entrada" style="width: 100%;" {% if estado == 'entrada' or estado == 'descanso' %} disabled {% endif %}>Entrada</button>
+                    </form>
 
-                <div id="panel-cronometro" class="cronometro-box" style="display: none;">
-                    <small>Tiempo hoy:</small>
-                    <span id="cronometro">00:00:00</span>
-                </div>
-
-                <div id="panel-pausa" class="cronometro-box pausa" style="display: none;">
-                    <small>En descanso:</small>
-                    <span id="cronometro-pausa">00:00:00</span>
-                </div>
-
-                <div class="button-group">
-                    <form action="/fichar/entrada" method="POST" style="width: 100%;">
-                        <button type="submit" class="btn btn-entrada" style="width: 100%;"
-                            {% if estado == 'entrada' or estado == 'descanso' %} disabled {% endif %}>
-                            Entrada
+                    <form action="/fichar/descanso" method="POST" 
+                          onsubmit="return confirmarAccion('{% if estado == 'descanso' %}¿Quieres finalizar el descanso?{% else %}¿Quieres tomar un descanso?{% endif %}')">
+                        <button type="submit" class="btn {% if estado == 'descanso' %}btn-entrada{% else %}btn-descanso{% endif %}" style="width: 100%;" {% if (estado != 'entrada' and estado != 'descanso') %} disabled {% endif %}>
+                            {% if estado == 'descanso' %} Reanudar {% else %} Pausa {% endif %}
                         </button>
                     </form>
 
-                    <form action="/fichar/descanso" method="POST" style="width: 100%;" onsubmit="return confirmarAccion('¿Cambiar estado?')">
-                        <button type="submit" 
-                            class="btn {% if estado == 'descanso' %}btn-entrada{% else %}btn-descanso{% endif %}" 
-                            style="width: 100%;"
-                            {% if (estado != 'entrada' and estado != 'descanso') %} disabled {% endif %}>
-                            {% if estado == 'descanso' %} Fin Pausa {% else %} Pausa {% endif %}
-                        </button>
-                    </form>
-
-                    <form action="/fichar/salida" method="POST" style="width: 100%;" onsubmit="return confirmarAccion('¿Cerrar jornada?')">
-                        <button type="submit" class="btn btn-salida" style="width: 100%;"
-                            {% if estado == 'fuera' or estado == 'salida' %} disabled {% endif %}>
-                            Salida
-                        </button>
+                    <form action="/fichar/salida" method="POST" onsubmit="return confirmarAccion('¿Finalizar la jornada de hoy?')">
+                        <button type="submit" class="btn btn-salida" style="width: 100%;" {% if estado == 'fuera' or estado == 'salida' %} disabled {% endif %}>Salida</button>
                     </form>
                 </div>
 
-                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px dashed #cbd5e1; text-align: center;">
-                    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">¿Olvidaste fichar?</p>
-                    <a href="/fichaje_manual" class="btn btn-primary" style="background-color: #3b82f6; width: auto; padding: 10px 20px; font-size: 0.8rem; border-radius: 8px; text-decoration: none; color: white; display: inline-block;">
-                        ➕ Reportar horas pasadas
-                    </a>
+                <div style="margin-top: 25px; text-align: center;">
+                    <a href="/fichaje_manual" style="font-size: 0.8rem; color: #6366f1; text-decoration: none; font-weight: 600;">Registrar olvido o incidencia</a>
                 </div>
             </div>
         </div>
 
         <div class="column-calendar">
-            <div class="card">
+            <div class="card" style="height: 100%;">
                 <div id="calendar"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // ... (Tu script de JavaScript se mantiene igual, ya funciona correctamente)
         const horaInicioJornada = "{{ hora_inicio }}";
         const horaInicioPausa = "{{ hora_pausa }}";
+        const totalPausaCerradaSeg = parseInt("{{ total_segundos_pausa_cerrados | default(0) }}");
         const estadoActual = "{{ estado }}";
 
         function confirmarAccion(m) { return confirm(m); }
@@ -147,17 +176,41 @@
 
             if (horaInicioJornada !== "" && estadoActual !== 'fuera' && estadoActual !== 'salida') {
                 const diffJ = ahora - new Date(horaInicioJornada);
-                if (diffJ > 0) {
-                    document.getElementById('panel-cronometro').style.display = 'block';
-                    document.getElementById('cronometro').innerText = formatearTiempo(diffJ);
-                }
+                document.getElementById('panel-cronometro').style.display = 'block';
+                document.getElementById('cronometro').innerText = formatearTiempo(diffJ);
             }
 
+            let msPausaCerrada = totalPausaCerradaSeg * 1000;
+            let msPausaActual = 0;
+
             if (estadoActual === "descanso" && horaInicioPausa !== "") {
-                const diffP = ahora - new Date(horaInicioPausa);
-                if (diffP > 0) {
-                    document.getElementById('panel-pausa').style.display = 'block';
-                    document.getElementById('cronometro-pausa').innerText = formatearTiempo(diffP);
+                msPausaActual = (ahora - new Date(horaInicioPausa));
+                document.getElementById('contenedor-pausa-actual').style.display = 'block';
+                document.getElementById('cronometro-pausa-actual').innerText = formatearTiempo(msPausaActual);
+            } else {
+                document.getElementById('contenedor-pausa-actual').style.display = 'none';
+            }
+
+            let msPausaTotal = msPausaCerrada + msPausaActual;
+
+            if (msPausaTotal > 0) {
+                const panelPausa = document.getElementById('panel-pausa');
+                const cronoTotal = document.getElementById('cronometro-pausa-total');
+                const avisoPausa = document.getElementById('aviso-pausa');
+                
+                panelPausa.style.display = 'block';
+                cronoTotal.innerText = formatearTiempo(msPausaTotal);
+
+                if (msPausaTotal > 1800000) {
+                    panelPausa.style.background = "#fef2f2";
+                    panelPausa.style.borderColor = "#fecaca";
+                    cronoTotal.style.color = "#b91c1c";
+                    avisoPausa.style.display = "block";
+                } else {
+                    panelPausa.style.background = "#fffbeb";
+                    panelPausa.style.borderColor = "#fef3c7";
+                    cronoTotal.style.color = "#92400e";
+                    avisoPausa.style.display = "none";
                 }
             }
         }
@@ -172,11 +225,12 @@
                 locale: 'es',
                 firstDay: 1,
                 height: 'auto',
+                dayMaxEvents: 2, // Limita los eventos visibles para que no crezca la casilla
                 headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
                 events: [
                     {% for r in historial %}
                     {
-                        title: '{{ r.tipo | capitalize }}{% if r.estado == "pendiente" %} (⌛){% endif %}',
+                        title: '{{ r.tipo[:1]|upper }}',
                         start: '{{ r.timestamp.strftime("%Y-%m-%dT%H:%M:%S") }}',
                         color: '{% if r.estado == "pendiente" %}#94a3b8{% elif r.tipo == "entrada" %}#10b981{% elif r.tipo == "descanso" %}#f59e0b{% else %}#ef4444{% endif %}',
                     },

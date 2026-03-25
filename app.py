@@ -189,6 +189,9 @@ def index():
         if estado == 'descanso' and ultimo_fichaje:
             pausa_actual = int((ahora - ultimo_fichaje.timestamp).total_seconds())
         
+        # --- CAMBIO AQUÍ: Para que el progreso NO reste las pausas ---
+        # Si quieres que la barra de progreso ignore los descansos, usa 'segundos_desde_inicio'
+        # Si quieres mantener el descuento pero que el usuario vea su tiempo de pausa, deja 'segundos_trabajados'
         segundos_trabajados = segundos_desde_inicio - (segundos_pausa_cerrados + pausa_actual)
         segundos_objetivo_diario = (user.horas_contratadas / 5) * 3600
         
@@ -214,16 +217,17 @@ def index():
                            progreso=round(progreso, 1),
                            horas_totales_semana=horas_totales_semana,
                            porc_semanal=porc_semanal,
-                           bloqueado=False) # <--- Forzamos siempre False para permitir fichar
+                           bloqueado=False)
 
 @app.route('/fichar/<tipo>', methods=['POST'])
 def registrar_fichaje(tipo):
     user_id = session.get('user_id')
+    rol_actual = session.get('rol')  # Obtenemos el rol de la sesión
     ahora = datetime.now()
     ultimo = Fichaje.query.filter_by(usuario_id=user_id).order_by(Fichaje.timestamp.desc()).first()
     ultimo_tipo = ultimo.tipo if ultimo else 'salida'
 
-    # Lógica de mensajes
+    # Lógica de mensajes (se mantiene igual)
     if tipo == 'descanso' and ultimo_tipo == 'descanso':
         tipo = 'entrada'
         mensaje = "Fin de descanso. ¡A seguir!"
@@ -237,14 +241,20 @@ def registrar_fichaje(tipo):
         flash("Ya tienes una entrada activa para hoy.")
         return redirect(url_for('index'))
 
-    # Creamos el fichaje
+    # --- NUEVA LÓGICA DE ESTADO ---
+    if rol_actual == 'admin':
+        estado_final = 'aprobado'
+    else:
+        # Solo para empleados: si es un fichaje de un día olvidado, queda pendiente
+        estado_final = 'pendiente' if (ultimo and ultimo.timestamp.date() < ahora.date()) else 'aprobado'
+
+    # Creamos el fichaje con el estado calculado
     nuevo_fichaje = Fichaje(
         usuario_id=user_id,
         tipo=tipo,
         timestamp=ahora,
         ip_origen=request.remote_addr,
-        # Si es una salida de un olvido, lo marcamos como pendiente para el admin
-        estado='pendiente' if (ultimo and ultimo.timestamp.date() < ahora.date()) else 'aprobado'
+        estado=estado_final  # <--- Aplicamos la variable
     )
     
     db.session.add(nuevo_fichaje)
@@ -271,27 +281,35 @@ def fichaje_manual():
         salida_dt = entrada_dt + timedelta(hours=horas)
 
         try:
-            # Creamos los fichajes con estado 'pendiente'
+            # Determinamos el estado: 'aprobado' para admin, 'pendiente' para el resto
+            estado_final = 'aprobado' if session.get('rol') == 'admin' else 'pendiente'
+
+            # Creamos los fichajes con el estado calculado
             f_entrada = Fichaje(
                 usuario_id=session['user_id'],
                 tipo='entrada',
                 timestamp=entrada_dt,
                 motivo_edicion=f"Manual: {comentario}",
-                estado='pendiente'  # <-- Nuevo: Requiere validación
+                estado=estado_final
             )
             f_salida = Fichaje(
                 usuario_id=session['user_id'],
                 tipo='salida',
                 timestamp=salida_dt,
                 motivo_edicion=f"Manual: {comentario}",
-                estado='pendiente'  # <-- Nuevo: Requiere validación
+                estado=estado_final
             )
 
             db.session.add(f_entrada)
             db.session.add(f_salida)
             db.session.commit()
             
-            flash(f"✅ Horas enviadas a revisión. Registradas {horas}h el día {fecha_str}")
+            # Mensaje personalizado según si requiere revisión o no
+            if estado_final == 'aprobado':
+                flash(f"✅ Horas registradas y aprobadas: {horas}h el día {fecha_str}")
+            else:
+                flash(f"✅ Horas enviadas a revisión: {horas}h el día {fecha_str}")
+            
             return redirect(url_for('index'))
             
         except Exception as e:
@@ -301,52 +319,82 @@ def fichaje_manual():
 
     return render_template('fichaje_manual.html', hoy=datetime.now().strftime('%Y-%m-%d'))
 
+from flask import request # Asegúrate de tener importado request
+
 @app.route('/admin/panel')
-def admin_panel():
-    user_id = session.get('user_id')
-    user = db.session.get(Usuario, user_id)
-    if not user or user.rol != 'admin':
+@app.route('/admin/empleado/<int:user_id>')
+def admin_panel(user_id=None):
+    if session.get('rol') != 'admin':
         return redirect(url_for('index'))
-    todos_los_fichajes = Fichaje.query.order_by(Fichaje.timestamp.desc()).all()
-    return render_template('admin.html', entries=todos_los_fichajes)
+    
+    lista_empleados = Usuario.query.all()
+    query = Fichaje.query
+    
+    # --- LÓGICA DE FILTROS ---
+    # Filtro por Empleado
+    empleado_seleccionado = None
+    if user_id:
+        query = query.filter_by(usuario_id=user_id)
+        empleado_seleccionado = Usuario.query.get(user_id)
+
+    # Filtro por Fechas
+    fecha_inicio = request.args.get('desde')
+    fecha_fin = request.args.get('hasta')
+
+    if fecha_inicio:
+        query = query.filter(Fichaje.timestamp >= fecha_inicio)
+    if fecha_fin:
+        # Añadimos ' 23:59:59' para incluir todo el día final
+        query = query.filter(Fichaje.timestamp <= f"{fecha_fin} 23:59:59")
+    # -------------------------
+
+    todos_los_fichajes = query.order_by(
+        Fichaje.estado.desc(), 
+        Fichaje.timestamp.desc()
+    ).all()
+    
+    return render_template('admin.html', 
+                           entries=todos_los_fichajes, 
+                           empleados=lista_empleados, 
+                           filtro_user=empleado_seleccionado,
+                           fecha_inicio=fecha_inicio,
+                           fecha_fin=fecha_fin)
 
 @app.route('/admin/exportar')
 def exportar_csv():
-    user_id = session.get('user_id')
-    user = db.session.get(Usuario, user_id)
-    if not user or user.rol != 'admin':
+    if session.get('rol') != 'admin':
         return redirect(url_for('login'))
 
-    fichajes = Fichaje.query.all()
+    fichajes = Fichaje.query.order_by(Fichaje.timestamp.desc()).all()
     si = StringIO()
     cw = csv.writer(si)
     
-    # 1. Cabecera actualizada con campos legales
     cw.writerow([
-        'ID Fichaje', 'Empleado', 'DNI/NIE', 'Nº Seg. Social', 
-        'Tipo', 'Fecha y Hora', 'IP Origen', 
-        'Editado por Admin', 'Motivo de Corrección'
+        'ID', 'Empleado', 'DNI/NIE', 'NASS', 
+        'Tipo', 'Fecha', 'Hora', 'IP', 
+        'Editado', 'Notas'
     ])
     
     for f in fichajes:
-        # 2. Obtenemos los datos del usuario relacionado con el fichaje
         cw.writerow([
             f.id, 
             f.usuario.nombre, 
-            f.usuario.dni if f.usuario.dni else "N/A", 
-            f.usuario.nass if f.usuario.nass else "N/A",
-            f.tipo, 
-            f.timestamp.strftime('%Y-%m-%d %H:%M:%S'), 
+            f.usuario.dni or "N/A", 
+            f.usuario.nass or "N/A",
+            f.tipo.capitalize(), 
+            f.timestamp.strftime('%Y-%m-%d'),
+            f.timestamp.strftime('%H:%M:%S'), 
             f.ip_origen,
             "SÍ" if f.editado_por_admin else "NO",
-            f.motivo_edicion if f.motivo_edicion else ""
+            f.motivo_edicion or ""
         ])
     
-    return Response(si.getvalue(), mimetype="text/csv",
-                    headers={"Content-disposition": "attachment; filename=informe_fichajes_legal.csv"})
-    
-    return Response(si.getvalue(), mimetype="text/csv",
-                    headers={"Content-disposition": "attachment; filename=informe_fichajes.csv"})
+    fecha_archivo = datetime.now().strftime("%Y_%m_%d")
+    return Response(
+        si.getvalue(), 
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename=fichajes_{fecha_archivo}.csv"}
+    )
 
 @app.route('/admin/informe')
 def admin_informe():
