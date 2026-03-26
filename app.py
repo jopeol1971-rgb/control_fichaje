@@ -1,12 +1,34 @@
+# 1. Librerías del sistema (Standard Library)
+import io
 import os
 import csv
-from io import StringIO
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, session, Response
-from flask_sqlalchemy import SQLAlchemy
+
+# 2. Librerías de terceros (Flask y extensiones)
 from dotenv import load_dotenv
-from models import db, Usuario, Fichaje
+from flask import (
+    Flask, render_template, request, redirect, 
+    url_for, flash, session, Response, send_file
+)
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash
+
+# 3. Librerías de generación de PDF (ReportLab)
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+# 4. Módulos locales del proyecto
+from models import db, Usuario, Fichaje
+
+def formatear_segundos_a_hhmm(segundos):
+    """Convierte segundos a formato string HH:MM"""
+    if not segundos:
+        return "00:00"
+    horas = int(segundos // 3600)
+    minutos = int((segundos % 3600) // 60)
+    return f"{horas:02d}:{minutos:02d}"
 
 # 1. CARGA DE CONFIGURACIÓN
 load_dotenv()
@@ -36,17 +58,20 @@ def calcular_horas_diarias(fichajes):
     for f in fichajes:
         fecha_str = f.timestamp.strftime('%Y-%m-%d')
         if fecha_str not in resumen:
-            resumen[fecha_str] = {'eventos': [], 'total_pausa': timedelta(0)}
+            resumen[fecha_str] = {
+                'eventos': [], 
+                'total_pausa': timedelta(0),
+                'segundos_netos': 0  # Inicializamos para evitar errores en el informe
+            }
         resumen[fecha_str]['eventos'].append(f)
 
     for fecha, datos in resumen.items():
         eventos = sorted(datos['eventos'], key=lambda x: x.timestamp)
         
-        # Identificamos el primer y último punto del día
         entrada_principal = next((e.timestamp for e in eventos if e.tipo == 'entrada'), None)
         salida_principal = next((e.timestamp for e in reversed(eventos) if e.tipo == 'salida'), None)
         
-        # Mantenemos el cálculo de la pausa solo para información/auditoría
+        # Cálculo de pausas
         inicio_descanso = None
         for e in eventos:
             if e.tipo == 'descanso':
@@ -59,30 +84,29 @@ def calcular_horas_diarias(fichajes):
             datos['total_pausa'] += (ahora - inicio_descanso)
 
         datos['total_pausa_str'] = str(datos['total_pausa']).split('.')[0]
-        datos['pausa'] = datos['total_pausa_str']
-        limite = timedelta(minutes=30)
+        limite_pausa = timedelta(minutes=30)
 
         if entrada_principal:
-            # Si hoy no ha salido todavía, contamos hasta la hora actual
             fin_calculo = salida_principal if salida_principal else ahora
-            
-            # --- MODIFICACIÓN AQUÍ: La jornada es el tiempo total sin restar pausas ---
             duracion_jornada = fin_calculo - entrada_principal
+            
+            # GUARDAR SEGUNDOS (Vital para sumatorios de informes)
+            datos['segundos_netos'] = int(duracion_jornada.total_seconds())
             datos['total_horas'] = str(duracion_jornada).split('.')[0] 
-            # -----------------------------------------------------------------------
             
             datos['entrada'] = entrada_principal
             datos['salida'] = salida_principal
             
-            # Mantenemos la alerta visual por si te interesa saber si descansaron de más
-            if datos['total_pausa'] > limite:
+            # Alertas y observaciones
+            if datos['total_pausa'] > limite_pausa:
                 datos['observaciones'] = f"⚠️ Pausa larga: {datos['total_pausa_str']}"
                 datos['alerta'] = True
             else:
                 datos['observaciones'] = f"Pausa: {datos['total_pausa_str']}"
                 datos['alerta'] = False
         else:
-            datos['total_horas'] = "Pendiente"
+            datos['total_horas'] = "00:00:00"
+            datos['segundos_netos'] = 0
             datos['observaciones'] = "Sin entrada"
             datos['alerta'] = False
             datos['entrada'] = None
@@ -363,54 +387,127 @@ def admin_panel(user_id=None):
 @app.route('/admin/exportar')
 def exportar_csv():
     if session.get('rol') != 'admin':
-        return redirect(url_for('login'))
+        return redirect(url_for('index'))
 
     fichajes = Fichaje.query.order_by(Fichaje.timestamp.desc()).all()
-    si = StringIO()
-    cw = csv.writer(si)
     
-    cw.writerow([
-        'ID', 'Empleado', 'DNI/NIE', 'NASS', 
-        'Tipo', 'Fecha', 'Hora', 'IP', 
-        'Editado', 'Notas'
-    ])
+    # CORRECCIÓN AQUÍ: Añade "io." delante de StringIO
+    output = io.StringIO() 
+    writer = csv.writer(output)
+    
+    writer.writerow(['ID', 'Empleado', 'DNI/NIE', 'Tipo', 'Fecha', 'Hora', 'Estado'])
     
     for f in fichajes:
-        cw.writerow([
+        writer.writerow([
             f.id, 
             f.usuario.nombre, 
             f.usuario.dni or "N/A", 
-            f.usuario.nass or "N/A",
             f.tipo.capitalize(), 
             f.timestamp.strftime('%Y-%m-%d'),
-            f.timestamp.strftime('%H:%M:%S'), 
-            f.ip_origen,
-            "SÍ" if f.editado_por_admin else "NO",
-            f.motivo_edicion or ""
+            f.timestamp.strftime('%H:%M:%S'),
+            (f.estado or "pendiente").capitalize()
         ])
     
     fecha_archivo = datetime.now().strftime("%Y_%m_%d")
     return Response(
-        si.getvalue(), 
+        output.getvalue(), 
         mimetype="text/csv",
         headers={"Content-disposition": f"attachment; filename=fichajes_{fecha_archivo}.csv"}
+    )
+@app.route('/admin/exportar_pdf')
+def exportar_pdf():
+    if session.get('rol') != 'admin':
+        return redirect(url_for('index'))
+
+    # 1. Obtener los datos de la base de datos
+    fichajes = Fichaje.query.order_by(Fichaje.timestamp.desc()).all()
+    
+    # 2. Preparar el documento en memoria
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Título
+    titulo = f"Informe General de Fichajes - {datetime.now().strftime('%d/%m/%Y')}"
+    elements.append(Paragraph(titulo, styles['Title']))
+    elements.append(Spacer(1, 12))
+
+    # 3. Estructura de la tabla (Cabeceras y datos)
+    data = [['Empleado', 'DNI', 'Tipo', 'Fecha', 'Hora', 'Estado', 'IP']]
+    for f in fichajes:
+        data.append([
+            f.usuario.nombre,
+            f.usuario.dni or "N/A",
+            f.tipo.capitalize(),
+            f.timestamp.strftime('%Y-%m-%d'),
+            f.timestamp.strftime('%H:%M:%S'),
+            f.estado.capitalize(),
+            f.ip_origen
+        ])
+
+    # 4. Estilo de la tabla
+    tabla = Table(data)
+    tabla.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')), # Azul oscuro
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+    ]))
+    
+    elements.append(tabla)
+    doc.build(elements)
+
+    # 5. Envío del archivo
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"fichajes_{datetime.now().strftime('%Y%m%d')}.pdf",
+        mimetype='application/pdf'
     )
 
 @app.route('/admin/informe')
 def admin_informe():
-    user_id = session.get('user_id')
-    user = db.session.get(Usuario, user_id)
-    if not user or user.rol != 'admin':
+    if session.get('rol') != 'admin':
         return redirect(url_for('index'))
 
     usuarios = Usuario.query.all()
     informe_final = []
+    ahora = datetime.now()
+    mes_actual = ahora.month
+    semana_actual = ahora.isocalendar()[1]
+
     for u in usuarios:
         fichajes_u = Fichaje.query.filter_by(usuario_id=u.id).order_by(Fichaje.timestamp.asc()).all()
         horas_dia = calcular_horas_diarias(fichajes_u)
-        informe_final.append({'nombre': u.nombre, 'dias': horas_dia})
-    return render_template('informe.html', informe=informe_final)
+        
+        seg_semana = 0
+        seg_mes = 0
 
+        for fecha_str, datos in horas_dia.items():
+            try:
+                f_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
+                s_netos = datos.get('segundos_netos', 0)
+                
+                if f_dt.month == mes_actual:
+                    seg_mes += s_netos
+                if f_dt.isocalendar()[1] == semana_actual:
+                    seg_semana += s_netos
+            except:
+                continue
+
+        informe_final.append({
+            'nombre': u.nombre, 
+            'dias': horas_dia,
+            'total_semanal': formatear_segundos_a_hhmm(seg_semana),
+            'total_mensual': formatear_segundos_a_hhmm(seg_mes)
+        })
+
+    return render_template('informe.html', informe=informe_final)
 @app.route('/admin/nuevo_empleado', methods=['GET', 'POST'])
 def nuevo_empleado():
     # Solo el admin puede entrar aquí

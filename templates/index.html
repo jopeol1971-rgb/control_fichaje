@@ -36,6 +36,19 @@
             overflow: hidden;
         }
 
+        /* Estilos para los nuevos iconos del calendario */
+        .fc-event {
+            background: transparent !important;
+            border: none !important;
+        }
+        .evento-icono {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            padding: 1px 4px;
+        }
+
         /* Ajuste para pantallas pequeñas */
         @media (max-width: 1000px) {
             .dashboard-grid {
@@ -50,11 +63,29 @@
 
     <div class="dashboard-grid">
         <div class="column-actions">
-            <div style="margin-bottom: 20px; padding: 5px 10px; border-left: 4px solid #6366f1; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+            <div style="margin-bottom: 20px; padding: 5px 10px; border-left: 4px solid #6366f1; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between;">
                 <h2 style="font-size: 1.3rem; color: #1e293b; margin: 0; font-weight: 700;">
-                    Hola, <span style="color: #6366f1;">{{ user.nombre }}</span> 👋
+                    Hola, <span style="color: #6366f1;">{{ user.nombre }}</span> 👋 
+                </h2>
+                <h2 style="font-size: 1.3rem; color: #1e293b; margin: 0; font-weight: 700;">
+                    <span id="reloj-saludo" style="color: #1e293b;">00:00</span>
                 </h2>
             </div>
+            
+            <script>
+                function actualizarReloj() {
+                    const ahora = new Date();
+                    const horas = String(ahora.getHours()).padStart(2, '0');
+                    const minutos = String(ahora.getMinutes()).padStart(2, '0');
+        
+                    const elementoReloj = document.getElementById('reloj-saludo');
+                    if (elementoReloj) {
+                        elementoReloj.textContent = `${horas}:${minutos}`;
+                    }
+                }
+                setInterval(actualizarReloj, 1000);
+                actualizarReloj();
+            </script>
 
             <div class="card" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; margin-bottom: 20px; border: none;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -77,9 +108,8 @@
             </div>
 
             <div class="card">
-                <div class="header-card" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 style="font-size: 1.2rem; margin: 0;">Gestión de Turno</h2>
-                    <div id="reloj" class="reloj-digital num-cronometro" style="font-weight: bold; color: #64748b;">00:00:00</div>
+                <div class="header-card" style="display: flex; justify-content: center; align-items: center;">
+                    <h2 style="font-size: 1.2rem; margin: 0;">Estado de la jornada</h2>
                 </div>
                 
                 {% if alerta_olvido %}
@@ -89,8 +119,7 @@
                 {% endif %}
 
                 <div style="margin: 15px 0; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                        <span style="font-size: 0.75rem; font-weight: bold; color: #475569;">Estado de la jornada</span>
+                    <div style="display: flex; justify-content: center; margin-bottom: 8px;">
                         <span style="font-size: 0.75rem; font-weight: bold; color: #10b981;">{{ progreso }}% completado</span>
                     </div>
                     <div style="background: #cbd5e1; border-radius: 20px; height: 8px; width: 100%; overflow: hidden;">
@@ -113,13 +142,9 @@
                             <small style="color: #b45309; font-weight: bold; display: block; font-size: 0.65rem;">PAUSA ACTUAL:</small>
                             <span id="cronometro-pausa-actual" class="num-cronometro" style="color: #b45309; font-size: 1.2rem; font-weight: 700;">00:00:00</span>
                         </div>
-                        
                         <div>
                             <small style="color: #92400e; font-weight: bold; display: block; font-size: 0.65rem;">DESCANSO TOTAL ACUMULADO HOY:</small>
                             <span id="cronometro-pausa-total" class="num-cronometro" style="color: #92400e; font-size: 1.4rem; font-weight: 800;">00:00:00</span>
-                        </div>
-                        <div id="aviso-pausa" style="display: none; font-size: 0.7rem; font-weight: bold; margin-top: 6px; color: #b91c1c;">
-                            ⚠️ AVISO: Has excedido el tiempo de descanso recomendado.
                         </div>
                     </div>
                 </div>
@@ -128,21 +153,19 @@
                     <form action="/fichar/entrada" method="POST">
                         <button type="submit" class="btn btn-entrada" style="width: 100%;" {% if estado == 'entrada' or estado == 'descanso' %} disabled {% endif %}>Entrada</button>
                     </form>
-
                     <form action="/fichar/descanso" method="POST" 
                           onsubmit="return confirmarAccion('{% if estado == 'descanso' %}¿Quieres finalizar el descanso?{% else %}¿Quieres tomar un descanso?{% endif %}')">
                         <button type="submit" class="btn {% if estado == 'descanso' %}btn-entrada{% else %}btn-descanso{% endif %}" style="width: 100%;" {% if (estado != 'entrada' and estado != 'descanso') %} disabled {% endif %}>
                             {% if estado == 'descanso' %} Reanudar {% else %} Pausa {% endif %}
                         </button>
                     </form>
-
                     <form action="/fichar/salida" method="POST" onsubmit="return confirmarAccion('¿Finalizar la jornada de hoy?')">
                         <button type="submit" class="btn btn-salida" style="width: 100%;" {% if estado == 'fuera' or estado == 'salida' %} disabled {% endif %}>Salida</button>
                     </form>
                 </div>
 
                 <div style="margin-top: 25px; text-align: center;">
-                    <a href="/fichaje_manual" style="font-size: 0.8rem; color: #6366f1; text-decoration: none; font-weight: 600;">Registrar olvido o incidencia</a>
+                    <a href="/fichaje_manual" style="font-size: 0.8rem; color: #6366f1; text-decoration: none; font-weight: 600;">Registrar jornadas anteriores</a>
                 </div>
             </div>
         </div>
@@ -171,9 +194,6 @@
 
         function actualizarRelojes() {
             const ahora = new Date();
-            const elReloj = document.getElementById('reloj');
-            if (elReloj) elReloj.innerText = ahora.toLocaleTimeString('es-ES');
-
             if (horaInicioJornada !== "" && estadoActual !== 'fuera' && estadoActual !== 'salida') {
                 const diffJ = ahora - new Date(horaInicioJornada);
                 document.getElementById('panel-cronometro').style.display = 'block';
@@ -192,26 +212,9 @@
             }
 
             let msPausaTotal = msPausaCerrada + msPausaActual;
-
             if (msPausaTotal > 0) {
-                const panelPausa = document.getElementById('panel-pausa');
-                const cronoTotal = document.getElementById('cronometro-pausa-total');
-                const avisoPausa = document.getElementById('aviso-pausa');
-                
-                panelPausa.style.display = 'block';
-                cronoTotal.innerText = formatearTiempo(msPausaTotal);
-
-                if (msPausaTotal > 1800000) {
-                    panelPausa.style.background = "#fef2f2";
-                    panelPausa.style.borderColor = "#fecaca";
-                    cronoTotal.style.color = "#b91c1c";
-                    avisoPausa.style.display = "block";
-                } else {
-                    panelPausa.style.background = "#fffbeb";
-                    panelPausa.style.borderColor = "#fef3c7";
-                    cronoTotal.style.color = "#92400e";
-                    avisoPausa.style.display = "none";
-                }
+                document.getElementById('panel-pausa').style.display = 'block';
+                document.getElementById('cronometro-pausa-total').innerText = formatearTiempo(msPausaTotal);
             }
         }
         
@@ -225,17 +228,41 @@
                 locale: 'es',
                 firstDay: 1,
                 height: 'auto',
-                dayMaxEvents: 2, // Limita los eventos visibles para que no crezca la casilla
                 headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+                
                 events: [
                     {% for r in historial %}
                     {
-                        title: '{{ r.tipo[:1]|upper }}',
+                        title: '{{ r.timestamp.strftime("%H:%M") }}',
                         start: '{{ r.timestamp.strftime("%Y-%m-%dT%H:%M:%S") }}',
-                        color: '{% if r.estado == "pendiente" %}#94a3b8{% elif r.tipo == "entrada" %}#10b981{% elif r.tipo == "descanso" %}#f59e0b{% else %}#ef4444{% endif %}',
+                        extendedProps: { tipo: '{{ r.tipo }}' }
                     },
                     {% endfor %}
-                ]
+                ],
+
+                eventContent: function(arg) {
+                    let tipo = arg.event.extendedProps.tipo;
+                    let icono = '';
+                    let color = '';
+
+                    if (tipo === 'entrada') {
+                        icono = 'fa-sign-in-alt';
+                        color = '#10b981';
+                    } else if (tipo === 'descanso') {
+                        icono = 'fa-coffee';
+                        color = '#f59e0b';
+                    } else {
+                        icono = 'fa-sign-out-alt';
+                        color = '#ef4444';
+                    }
+
+                    return {
+                        html: `<div class="evento-icono" style="color: ${color}">
+                                <i class="fas ${icono}"></i>
+                                <span style="color: #1e293b; font-weight: bold;">${arg.event.title}</span>
+                               </div>`
+                    };
+                }
             });
             calendar.render();
         });
