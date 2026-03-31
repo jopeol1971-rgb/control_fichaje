@@ -246,12 +246,14 @@ def index():
 @app.route('/fichar/<tipo>', methods=['POST'])
 def registrar_fichaje(tipo):
     user_id = session.get('user_id')
-    rol_actual = session.get('rol')  # Obtenemos el rol de la sesión
+    rol_actual = session.get('rol')
     ahora = datetime.now()
+    
+    # Obtenemos el último registro del usuario
     ultimo = Fichaje.query.filter_by(usuario_id=user_id).order_by(Fichaje.timestamp.desc()).first()
     ultimo_tipo = ultimo.tipo if ultimo else 'salida'
 
-    # Lógica de mensajes (se mantiene igual)
+    # 1. Lógica de mensajes y alternancia de descanso
     if tipo == 'descanso' and ultimo_tipo == 'descanso':
         tipo = 'entrada'
         mensaje = "Fin de descanso. ¡A seguir!"
@@ -260,31 +262,43 @@ def registrar_fichaje(tipo):
     else:
         mensaje = f"Registro de {tipo} completado."
 
-    # Si es una entrada y ya hay una activa del mismo día, avisamos
+    # 2. Evitar duplicados de entrada en el mismo día
     if tipo == 'entrada' and ultimo_tipo == 'entrada' and ultimo.timestamp.date() == ahora.date():
         flash("Ya tienes una entrada activa para hoy.")
         return redirect(url_for('index'))
 
-    # --- NUEVA LÓGICA DE ESTADO ---
+    # 3. LÓGICA DE ESTADO CORREGIDA
     if rol_actual == 'admin':
         estado_final = 'aprobado'
     else:
-        # Solo para empleados: si es un fichaje de un día olvidado, queda pendiente
-        estado_final = 'pendiente' if (ultimo and ultimo.timestamp.date() < ahora.date()) else 'aprobado'
+        # Solo queda 'pendiente' si el último fichaje es de un día anterior 
+        # Y además se quedó en estado abierto ('entrada' o 'descanso')
+        olvido_dia_anterior = ultimo and ultimo.timestamp.date() < ahora.date()
+        sesion_abierta = ultimo_tipo in ['entrada', 'descanso']
+        
+        if olvido_dia_anterior and sesion_abierta:
+            estado_final = 'pendiente'
+        else:
+            estado_final = 'aprobado'
 
-    # Creamos el fichaje con el estado calculado
-    nuevo_fichaje = Fichaje(
-        usuario_id=user_id,
-        tipo=tipo,
-        timestamp=ahora,
-        ip_origen=request.remote_addr,
-        estado=estado_final  # <--- Aplicamos la variable
-    )
-    
-    db.session.add(nuevo_fichaje)
-    db.session.commit()
-    
-    flash(f'{mensaje} a las {ahora.strftime("%H:%M:%S")}.')
+    # 4. Creación del registro
+    try:
+        nuevo_fichaje = Fichaje(
+            usuario_id=user_id,
+            tipo=tipo,
+            timestamp=ahora,
+            ip_origen=request.remote_addr,
+            estado=estado_final
+        )
+        
+        db.session.add(nuevo_fichaje)
+        db.session.commit()
+        flash(f'{mensaje} a las {ahora.strftime("%H:%M:%S")}.')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Error al registrar: {str(e)}")
+        
     return redirect(url_for('index'))
 
 @app.route('/fichaje_manual', methods=['GET', 'POST'])

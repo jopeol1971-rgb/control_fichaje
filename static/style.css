@@ -1,162 +1,251 @@
-/* --- CONFIGURACIÓN DE PÁGINA --- */
+/* --- 1. CONFIGURACIÓN DE PÁGINA Y FONDO --- */
 body { 
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-    display: block; 
     min-height: 100vh; 
-    background: #f0f4f8; 
     margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%); 
+    color: #1e293b;
+}
+
+.container {
+    max-width: 1400px; /* Expandido para dar aire al calendario */
+    margin: 0 auto;
     padding: 20px;
-    color: #334155;
 }
 
-/* --- LAYOUT Y GRID --- */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr; /* Columna de control y columna de calendario */
-    gap: 25px;
-    margin-top: 20px;
-}
-
-/* Responsive para tablets y móviles */
-@media (max-width: 900px) {
-    .dashboard-grid { 
-        grid-template-columns: 1fr; 
-    }
-}
-
-/* --- CONTENEDORES --- */
-.card { 
-    background: white; 
-    padding: 1.5rem; 
-    border-radius: 12px; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
-    border: none;
-    margin-bottom: 20px;
-}
-
-/* --- BOTONES MODERNOS --- */
-.btn { 
-    padding: 12px 20px; 
-    border: none; 
-    border-radius: 8px; 
-    cursor: pointer; 
-    font-size: 0.9rem; 
-    font-weight: 600;
-    margin: 5px; 
-    color: white;
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    text-decoration: none;
-}
-
-.btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    filter: brightness(1.1);
-}
-
-.btn:active:not(:disabled) {
-    transform: translateY(0);
-}
-
-.btn:disabled {
-    background: #cbd5e0 !important;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* Botonera en el index */
-.button-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-@media (max-width: 480px) {
-    .button-group { grid-template-columns: 1fr; }
-}
-
-/* --- COLORES DE ESTADO --- */
-.btn-entrada, .entrada { background: #10b981; } /* Esmeralda */
-.btn-salida, .salida { background: #ef4444; }   /* Rojo soft */
-.btn-descanso, .descanso { background: #f59e0b; color: white; } /* Ámbar */
-.btn-primary { background: #3b82f6; } /* Azul para volver de pausa */
-
-/* --- PANELES DE TIEMPO Y CRONÓMETROS --- */
-.cronometro-box {
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-    text-align: center;
-    border-left: 6px solid #3b82f6;
-    background: #f0f7ff;
-    transition: all 0.3s ease;
-}
-
-.cronometro-box span { 
-    font-size: 2.5rem; 
-    font-weight: 800; 
-    display: block; 
-    font-variant-numeric: tabular-nums; /* Evita que los números "salten" */
-}
-
-.cronometro-box small {
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
-    color: #64748b;
-}
-
-/* Variantes de cronómetro */
-.cronometro-box.pausa { 
-    border-left-color: #f59e0b; 
-    background: #fffbeb; 
-    color: #92400e;
-}
-
-.cronometro-box.acumulado { 
-    border-left-color: #10b981; 
-    background: #f0fdf4; 
-    color: #166534;
-}
-
-.reloj-digital { 
-    font-size: 1.8rem; 
-    font-weight: bold; 
-    color: #1e293b; 
-    background: #f8fafc;
-    padding: 5px 15px;
-    border-radius: 8px;
-}
-
-/* --- ESPECÍFICO PARA LOGIN --- */
+/* --- 2. ESPECÍFICO PARA LOGIN (MEJORADO) --- */
 .login-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 80vh;
+    min-height: 100vh;
+    width: 100%;
 }
 
 .login-card {
     width: 100%;
     max-width: 400px;
+    padding: 3rem 2.5rem;
+    background: rgba(255, 255, 255, 0.95); /* Más opaco para mejor lectura */
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.login-logo {
+    max-width: 180px;
+    height: auto;
+    margin-bottom: 2rem;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.08));
+}
+
+.login-card h2 {
+    color: #475569;
+    margin-bottom: 2.5rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+/* --- 3. LAYOUT Y GRID (DASHBOARD) --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 0.9fr 1.6fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+@media (max-width: 1100px) {
+    .dashboard-grid { 
+        grid-template-columns: 1fr; 
+    }
+}
+
+/* --- 4. CONTENEDORES CON EFECTO CRISTAL --- */
+.card { 
+    background: rgba(255, 255, 255, 0.85); 
+    backdrop-filter: blur(10px); 
+    -webkit-backdrop-filter: blur(10px);
+    padding: 2.5rem; 
+    border-radius: 20px; 
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); 
+    border: 1px solid rgba(255, 255, 255, 0.18); 
+    margin-bottom: 20px;
+}
+
+/* --- 5. NAVEGACIÓN (FLOTANTE E INTEGRADA) --- */
+nav { 
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 12px 40px;
+    border-radius: 0 0 20px 20px; 
+    width: 95%; 
+    max-width: 1400px;
+    margin: 0 auto 30px auto; 
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; 
+    align-items: center; 
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-top: none;
+}
+
+.nav-logo-container {
+    grid-column: 2;
+    display: flex;
+    justify-content: center;
+}
+
+.nav-logo {
+    height: 55px;
+    width: auto;
+    transition: transform 0.3s ease;
+}
+
+.nav-logo:hover {
+    transform: scale(1.05);
+}
+
+.nav-links {
+    grid-column: 3;
+    display: flex;
+    justify-content: flex-end;
+    gap: 25px;
+    align-items: center;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s;
+}
+
+.nav-links a:hover {
+    opacity: 0.7;
+}
+
+.nav-links a[href*="logout"], 
+.nav-links a.cerrar-sesion {
+    color: #ef4444;
+}
+
+/* --- 6. BOTONES Y ESTADOS --- */
+.button-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.btn { 
+    padding: 14px 10px; 
+    border: none; 
+    border-radius: 10px; 
+    cursor: pointer; 
+    font-size: 0.85rem; 
+    font-weight: 700;
+    color: white;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.button-group .btn.active { 
+    background-color: #64748b !important;
+    opacity: 0.4 !important; 
+    filter: grayscale(100%) !important;
+    transform: scale(0.95);
+    box-shadow: inset 0 3px 5px rgba(0,0,0,0.2) !important;
+    pointer-events: none;
+    cursor: default;
+}
+
+.btn:hover:not(.active):not(:disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn-primary {
+    opacity: 1 !important;
+    filter: none !important;
+    background-color: #10b981;
+    width: 100%; /* Para el login */
+    border-radius: 12px;
+}
+
+.btn-entrada { background-color: #10b981; } 
+.btn-salida { background-color: #ef4444; }   
+.btn-descanso { background-color: #f59e0b; }
+
+/* --- 7. PANELES DE TIEMPO Y CRONÓMETROS --- */
+.cronometro-box {
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 15px;
+    text-align: center;
+    border-left: 6px solid #3b82f6;
+    background: rgba(255, 255, 255, 0.6);
+    transition: all 0.3s ease;
+}
+
+.cronometro-box span { 
+    font-size: 2.8rem; 
+    font-weight: 800; 
+    display: block; 
+    font-variant-numeric: tabular-nums; 
+}
+
+.cronometro-box.pausa { border-left-color: #f59e0b; background: rgba(255, 251, 235, 0.7); }
+.cronometro-box.acumulado { border-left-color: #10b981; background: rgba(240, 253, 244, 0.7); }
+
+.reloj-digital { 
+    font-size: 1.8rem; 
+    font-weight: bold; 
+    color: #1e293b; 
+    background: rgba(248, 250, 252, 0.8);
+    padding: 8px 15px;
+    border-radius: 8px;
+}
+
+/* --- 8. AJUSTES DEL CALENDARIO (FULLCALENDAR) --- */
+.fc .fc-daygrid-day-frame {
+    min-height: 120px !important;
+}
+
+.fc-scroller {
+    overflow: hidden !important;
+}
+
+.fc-daygrid-event {
+    font-size: 0.85rem !important;
+    padding: 3px 5px !important;
+    margin-bottom: 2px !important;
+}
+
+/* --- 9. INPUTS, ALERTAS Y UI (ESTILO UNIFICADO) --- */
 .form-input {
     width: 100%;
-    padding: 12px;
-    margin: 10px 0;
+    padding: 16px;
+    margin-bottom: 1.2rem;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 1rem;
-    box-sizing: border-box; /* Importante para que el padding no estire el input */
+    border-radius: 12px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    background: #ffffff;
+    transition: all 0.2s ease;
 }
 
 .form-input:focus {
@@ -165,35 +254,14 @@ body {
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
-/* --- ELEMENTOS DE UI --- */
-.badge {
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: white;
-}
-
-.header-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.user-status {
-    margin: 15px 0;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #f1f5f9;
+.form-input::placeholder {
+    color: #94a3b8;
 }
 
 .mensaje { 
     padding: 12px;
-    border-radius: 8px;
-    background: #f8fafc;
+    border-radius: 10px;
+    background: rgba(248, 250, 252, 0.8);
     border: 1px solid #e2e8f0;
     color: #64748b; 
     margin-top: 1rem; 
@@ -201,65 +269,16 @@ body {
 }
 
 .alerta-error {
-    background-color: #fef2f2;
+    background-color: rgba(254, 242, 242, 0.9);
     color: #b91c1c;
     padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    border: 1px solid #fee2e2;
-    font-size: 0.9rem;
-}
-
-.texto-alerta { 
-    color: #ef4444; 
-    font-weight: bold; 
-    margin-top: 8px; 
-    font-size: 0.85rem; 
-}
-
-/* --- NAVEGACIÓN ACTUALIZADA --- */
-nav { 
-    background: white;
-    padding: 10px 20px;
     border-radius: 10px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center; /* Centra verticalmente logo y links */
-    justify-content: space-between; /* Logo a la izquierda, links a la derecha */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.nav-logo-container {
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-}
-
-.nav-logo {
-    height: 40px; /* Tamaño ideal para la barra superior */
-    width: auto;
-    transition: transform 0.2s ease;
-}
-
-.nav-logo:hover {
-    transform: scale(1.05);
-}
-
-.nav-links {
-    display: flex;
-    gap: 15px;
-    align-items: center;
+    border: 1px solid #fee2e2;
 }
 
 .link-secundario { 
     color: #64748b; 
     text-decoration: none; 
-    font-size: 0.9rem; 
-    font-weight: 500;
-    transition: color 0.2s;
-}
-
-.link-secundario:hover { 
-    color: #1e293b;
-    text-decoration: underline; 
+    font-size: 0.95rem; 
+    font-weight: 600;
 }
