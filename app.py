@@ -489,14 +489,42 @@ def admin_informe():
     if session.get('rol') != 'admin':
         return redirect(url_for('index'))
 
-    usuarios = Usuario.query.all()
+    # 1. CAPTURAR FILTROS DEL FORMULARIO
+    nombre_buscado = request.args.get('nombre_empleado', '').strip()
+    fecha_inicio = request.args.get('desde')
+    fecha_fin = request.args.get('hasta')
+
+    # 2. FILTRAR USUARIOS
+    query_usuarios = Usuario.query
+    if nombre_buscado:
+        # Filtra por nombre o apellidos que contengan el texto buscado
+        query_usuarios = query_usuarios.filter(
+            (Usuario.nombre.ilike(f"%{nombre_buscado}%")) | 
+            (Usuario.apellidos.ilike(f"%{nombre_buscado}%"))
+        )
+    
+    usuarios = query_usuarios.all()
     informe_final = []
     ahora = datetime.now()
     mes_actual = ahora.month
     semana_actual = ahora.isocalendar()[1]
 
+    # 3. PROCESAR DATOS POR USUARIO
     for u in usuarios:
-        fichajes_u = Fichaje.query.filter_by(usuario_id=u.id).order_by(Fichaje.timestamp.asc()).all()
+        # Aplicamos filtro de fecha también a los fichajes para que el cálculo diario sea correcto
+        query_fichajes = Fichaje.query.filter_by(usuario_id=u.id)
+        
+        if fecha_inicio:
+            query_fichajes = query_fichajes.filter(Fichaje.timestamp >= fecha_inicio)
+        if fecha_fin:
+            query_fichajes = query_fichajes.filter(Fichaje.timestamp <= f"{fecha_fin} 23:59:59")
+            
+        fichajes_u = query_fichajes.order_by(Fichaje.timestamp.asc()).all()
+        
+        # Si el usuario no tiene fichajes en ese rango y estamos filtrando, saltamos al siguiente
+        if not fichajes_u and (nombre_buscado or fecha_inicio or fecha_fin):
+            continue
+
         horas_dia = calcular_horas_diarias(fichajes_u)
         
         seg_semana = 0
@@ -507,6 +535,7 @@ def admin_informe():
                 f_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
                 s_netos = datos.get('segundos_netos', 0)
                 
+                # Sumatorios para las tarjetas superiores
                 if f_dt.month == mes_actual:
                     seg_mes += s_netos
                 if f_dt.isocalendar()[1] == semana_actual:
@@ -515,13 +544,20 @@ def admin_informe():
                 continue
 
         informe_final.append({
-            'nombre': u.nombre, 
+            'nombre': f"{u.nombre} {u.apellidos}", 
             'dias': horas_dia,
             'total_semanal': formatear_segundos_a_hhmm(seg_semana),
             'total_mensual': formatear_segundos_a_hhmm(seg_mes)
         })
 
-    return render_template('informe.html', informe=informe_final)
+    # Pasamos las variables de filtro de vuelta al HTML para que se mantengan en los inputs
+    return render_template('informe.html', 
+                           informe=informe_final, 
+                           empleados=Usuario.query.all(), # Para el datalist
+                           filtro_user={'nombre': nombre_buscado}, # Para rellenar el buscador
+                           fecha_inicio=fecha_inicio,
+                           fecha_fin=fecha_fin)
+
 @app.route('/admin/nuevo_empleado', methods=['GET', 'POST'])
 def nuevo_empleado():
     # Solo el admin puede entrar aquí
