@@ -648,29 +648,28 @@ def validar_fichaje(f_id, accion):
 
 # --- ARRANQUE DE LA APLICACIÓN ---
 
-if __name__ == '__main__':
+def inicializar_base_de_datos():
+    """Crea las tablas e inserta el admin inicial si no existe."""
     with app.app_context():
-        # 1. Crea las tablas en Postgres con la nueva estructura (DNI, NASS, etc.)
+        # 1. Crea las tablas en Postgres (solo si no existen)
         db.create_all()
         
-        # 2. Definimos el DNI ficticio para el acceso del administrador
+        # 2. Definimos el DNI para el administrador
         admin_dni = '00000000T'
         
-        # 3. Verificamos si ya existe el administrador por su DNI
+        # 3. Verificamos si ya existe el administrador
         if not Usuario.query.filter_by(dni=admin_dni).first():
-            # Creamos el objeto con los nuevos campos requeridos
             admin_inicial = Usuario(
                 nombre='Admin',
                 apellidos='Sistema',
-                dni=admin_dni,          # Este será tu "usuario" en el login
+                dni=admin_dni,
                 nass='000000000000',
                 rol='admin',
                 horas_contratadas=40.0,
                 email='admin@superpekes.com'
             )
             
-            # IMPORTANTE: Usamos set_password para que la clave '1234' se guarde 
-            # como un hash seguro. Si pones password='1234', el login fallará.
+            # Hash seguro para la contraseña
             admin_inicial.set_password('1234')
             
             db.session.add(admin_inicial)
@@ -678,5 +677,10 @@ if __name__ == '__main__':
             print(f"Base de datos inicializada. Admin creado (DNI: {admin_dni}, Pass: 1234)")
         else:
             print("El usuario administrador ya existe en la base de datos.")
-            
+
+# Llamada obligatoria para que funcione en el despliegue de Render
+inicializar_base_de_datos()
+
+if __name__ == '__main__':
+    # Esto solo se ejecuta en local (python app.py)
     app.run(debug=True)
