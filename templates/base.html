@@ -2,39 +2,87 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Control de Fichaje - Superpekes</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
     <style>
-        /* Aplicamos el fondo claro global aquí para que afecte a todas las páginas */
         body {
-            background-color: #f8fafc; /* Gris azulado muy suave, elimina lo oscuro */
+            background-color: #f8fafc; 
             margin: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #1e293b;
         }
 
-        /* Nav mejorado con sombra suave */
+        /* Nav base optimizada */
         nav {
-            display: grid; 
-            grid-template-columns: 1fr auto 1fr; 
-            align-items: center; 
-            padding: 12px 40px; 
-            background: white; 
-            border-bottom: 1px solid #e2e8f0;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 12px; /* Reducido de 6px */
+            min-height: 50px;
+            background: rgba(255, 255, 255, 0.98);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
             position: sticky;
             top: 0;
             z-index: 1000;
+            backdrop-filter: blur(10px);
         }
 
-        /* Estilo para los mensajes flash para que no rompan el diseño */
-        .flashes-container {
-            margin-top: 20px;
+        .nav-section { display: flex; align-items: center; gap: 8px; }
+        .nav-left { flex: 1; justify-content: flex-start; }
+        .nav-center { justify-content: center; }
+        .nav-right { flex: 1; justify-content: flex-end; }
+
+        .nav-section a {
+            color: #475569 !important;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
         }
+
+        .nav-logo {
+            height: 40px !important; /* Altura estándar desktop */
+            width: auto;
+            display: block;
+        }
+
+        /* MEDIA QUERY PARA MÓVIL (Smartphones) */
+        @media (max-width: 600px) {
+            nav {
+                padding: 2px 10px; /* Mínimo espacio vertical */
+                min-height: 45px;
+            }
+            
+            .nav-logo { 
+                height: 30px !important; /* Logo más pequeño en móvil */
+            }
+
+            .nav-text { 
+                display: none; /* Escondemos textos "Inicio", "Panel Admin", etc. */
+            }
+
+            .nav-section a {
+                padding: 6px;
+                font-size: 1.2rem; /* Iconos un poco más grandes para tocar fácil */
+            }
+
+            main.container {
+                padding: 10px 10px !important; /* Menos margen superior en el contenido */
+            }
+            
+            .mensaje {
+                font-size: 0.8rem;
+                padding: 8px;
+            }
+        }
+
         .mensaje {
             padding: 12px;
             background: #f1f5f9;
@@ -49,35 +97,34 @@
 
 {% if session.get('user_id') %}
 <nav>
-    <div style="display: flex; justify-content: flex-start;">
-        <a href="{{ url_for('index') }}" class="link-secundario" style="text-decoration: none; color: #64748b; font-weight: 500;">
-            <i class="fas fa-home"></i> Inicio
+    <div class="nav-section nav-left">
+        <a href="{{ url_for('index') }}" title="Inicio">
+            <i class="fas fa-home"></i> <span class="nav-text" style="margin-left: 5px; font-weight: 500;">Inicio</span>
         </a>
     </div>
 
-    <div style="display: flex; justify-content: center;">
+    <div class="nav-section nav-center">
         <a href="{{ url_for('index') }}">
             <img src="{{ url_for('static', filename='img/logo_superpekes.png') }}" 
-                 alt="Logo Superpekes" 
-                 style="height: 48px; width: auto;">
+                 alt="Logo Superpekes" class="nav-logo">
         </a>
     </div>
     
-    <div style="display: flex; justify-content: flex-end; align-items: center; gap: 20px;">
+    <div class="nav-section nav-right">
         {% if session.get('rol') == 'admin' %}
-        <a href="{{ url_for('admin_panel') }}" class="link-secundario" style="color: #6366f1; font-weight: 700; text-decoration: none; font-size: 0.9rem; text-transform: uppercase;">
-            <i class="fas fa-user-shield"></i> Panel Admin
+        <a href="{{ url_for('admin_panel') }}" style="color: #6366f1 !important;" title="Admin">
+            <i class="fas fa-user-shield"></i> <span class="nav-text" style="margin-left: 5px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;">Admin</span>
         </a>
         {% endif %}
         
-        <a href="/logout" class="link-secundario" style="text-decoration: none; color: #ef4444; font-size: 0.9rem;">
-            Cerrar sesión <i class="fas fa-sign-out-alt"></i>
+        <a href="/logout" style="color: #ef4444 !important;" title="Salir">
+            <span class="nav-text" style="margin-right: 5px; font-size: 0.85rem;">Salir</span> <i class="fas fa-sign-out-alt"></i>
         </a>
     </div>
 </nav>
 {% endif %}
 
-    <main class="container" style="padding: 30px 20px; max-width: 1200px; margin: 0 auto;">
+    <main class="container" style="padding: 20px 15px; max-width: 1200px; margin: 0 auto;">
         {% block content %}{% endblock %}
 
         <div class="flashes-container">

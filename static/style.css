@@ -75,6 +75,103 @@ body {
     margin-bottom: 20px;
 }
 
+.top-hero {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.top-hero .card {
+    flex: 1;
+    min-width: 260px;
+    padding: 1.8rem;
+}
+
+.hero-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.hero-title {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.hero-subtitle {
+    margin: 8px 0 0;
+    color: #475569;
+    font-size: 0.95rem;
+}
+
+.hero-time {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.hero-tagline {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.65rem 0.95rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    background: #f8fafc;
+    color: #334155;
+}
+
+.hero-text-sm {
+    color: #64748b;
+    font-size: 0.95rem;
+}
+
+.admin-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.admin-top-bar h2 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+.admin-subtitle {
+    margin: 10px 0 0;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+}
+
+.admin-top-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.admin-top-actions a {
+    min-width: 140px;
+    text-align: center;
+}
+
 /* --- 5. NAVEGACIÓN (FLOTANTE E INTEGRADA) --- */
 nav { 
     background: rgba(255, 255, 255, 0.8);
@@ -281,4 +378,90 @@ nav {
     text-decoration: none; 
     font-size: 0.95rem; 
     font-weight: 600;
+}
+/* --- 10. CORRECCIONES PARA SMARTPHONE (RESPONSIVE) --- */
+@media (max-width: 600px) {
+    /* Ajuste del contenedor principal */
+    .container {
+        padding: 8px 10px;
+    }
+
+    /* Rediseño del Nav: Ahora compacto y horizontal */
+    nav {
+        display: flex !important;
+        flex-direction: row !important; /* Fuerza una sola línea */
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 0 10px !important;
+        height: 50px !important;        /* Altura reducida fija */
+        min-height: 50px !important;
+        width: 100% !important;
+        margin: 0 0 10px 0 !important;  /* Pega la barra a los bordes */
+        border-radius: 0 !important;
+        gap: 0 !important;
+    }
+
+    .nav-logo-container {
+        order: unset; 
+        display: flex;
+        justify-content: center;
+        flex: 0;
+    }
+
+    .nav-logo {
+        height: 28px !important; /* Reduce el tamaño del logo */
+    }
+
+    .nav-links {
+        order: unset;
+        flex: 1;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    /* Ocultar textos para ganar espacio horizontal */
+    .nav-links a span, 
+    .nav-text {
+        display: none !important; 
+    }
+
+    .nav-links a {
+        font-size: 1.1rem; 
+        min-height: 40px; /* Tamaño táctil sin estirar la barra */
+        padding: 0 5px;
+    }
+
+    /* Ajuste de Cards */
+    .card {
+        padding: 1.2rem; 
+        border-radius: 15px;
+        margin-bottom: 15px;
+    }
+
+    /* Dashboard: Botones y Cronómetros */
+    .button-group {
+        grid-template-columns: 1fr; 
+        gap: 8px;
+    }
+
+    .cronometro-box span {
+        font-size: 1.8rem; 
+    }
+
+    .reloj-digital {
+        font-size: 1.3rem;
+        padding: 5px 10px;
+    }
+
+    /* Ajuste de Login en móvil */
+    .login-card {
+        margin: 15px;
+        padding: 1.5rem;
+    }
+
+    /* Inputs sin zoom automático en iOS */
+    .form-input {
+        font-size: 16px !important; 
+        padding: 12px;
+    }
 }

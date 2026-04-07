@@ -59,54 +59,82 @@
                 min-width: 100%;
             }
         }
+
+        /* Mejoras específicas para móviles */
+        @media (max-width: 600px) {
+            .btn {
+                min-height: 48px; /* Tamaño mínimo para toque */
+                font-size: 1rem;
+                padding: 12px;
+            }
+            .cronometro-box span {
+                font-size: 1.8rem; /* Un poco más pequeño para caber */
+            }
+            .evento-icono {
+                font-size: 0.75rem; /* Más pequeño en móviles */
+            }
+        }
     </style>
+
+    <div class="top-hero">
+        <div class="card">
+            <div class="hero-header">
+                <div>
+                    <p class="hero-subtitle">Bienvenido de nuevo</p>
+                    <h2 class="hero-title">Hola, <span style="color: #6366f1;">{{ user.nombre }}</span> 👋</h2>
+                    <p class="hero-subtitle">Hoy es <span id="fecha-hoy">...</span></p>
+                </div>
+                <div class="hero-time" id="reloj-saludo">00:00</div>
+            </div>
+            <div class="hero-tagline">
+                <span class="hero-badge">Estado: {{ estado | capitalize }}</span>
+                <span class="hero-text-sm">Objetivo semanal {{ user.horas_contratadas }}h</span>
+            </div>
+        </div>
+
+        <div class="card" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; border: none;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                <div>
+                    <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Balance Semanal</h4>
+                    <div style="font-size: 2.2rem; font-weight: 800; margin: 5px 0;">
+                        {{ horas_totales_semana | default('0.0') }} 
+                        <span style="font-size: 1rem; opacity: 0.7; font-weight: 400;">/ {{ user.horas_contratadas }}h</span>
+                    </div>
+                </div>
+                <div style="text-align: right; min-width: 120px;">
+                    <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 6px 12px; border-radius: 999px; font-size: 0.9rem; font-weight: bold; display: inline-block;">
+                        {{ porc_semanal | default(0) }}%
+                    </span>
+                </div>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); height: 12px; border-radius: 10px; margin-top: 15px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="background: linear-gradient(90deg, #10b981, #34d399); width: {{ porc_semanal | default(0) }}%; height: 100%; border-radius: 10px; transition: width 1.5s ease;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function actualizarReloj() {
+            const ahora = new Date();
+            const horas = String(ahora.getHours()).padStart(2, '0');
+            const minutos = String(ahora.getMinutes()).padStart(2, '0');
+            const fechaTexto = ahora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
+            const elementoReloj = document.getElementById('reloj-saludo');
+            const elementoFecha = document.getElementById('fecha-hoy');
+            if (elementoReloj) {
+                elementoReloj.textContent = `${horas}:${minutos}`;
+            }
+            if (elementoFecha) {
+                elementoFecha.textContent = fechaTexto;
+            }
+        }
+        setInterval(actualizarReloj, 1000);
+        actualizarReloj();
+    </script>
 
     <div class="dashboard-grid">
         <div class="column-actions">
-            <div style="margin-bottom: 20px; padding: 5px 10px; border-left: 4px solid #6366f1; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between;">
-                <h2 style="font-size: 1.3rem; color: #1e293b; margin: 0; font-weight: 700;">
-                    Hola, <span style="color: #6366f1;">{{ user.nombre }}</span> 👋 
-                </h2>
-                <h2 style="font-size: 1.3rem; color: #1e293b; margin: 0; font-weight: 700;">
-                    <span id="reloj-saludo" style="color: #1e293b;">00:00</span>
-                </h2>
-            </div>
-            
-            <script>
-                function actualizarReloj() {
-                    const ahora = new Date();
-                    const horas = String(ahora.getHours()).padStart(2, '0');
-                    const minutos = String(ahora.getMinutes()).padStart(2, '0');
-        
-                    const elementoReloj = document.getElementById('reloj-saludo');
-                    if (elementoReloj) {
-                        elementoReloj.textContent = `${horas}:${minutos}`;
-                    }
-                }
-                setInterval(actualizarReloj, 1000);
-                actualizarReloj();
-            </script>
-
-            <div class="card" style="background: linear-gradient(135deg, #1e293b, #334155); color: white; margin-bottom: 20px; border: none;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <h4 style="margin: 0; opacity: 0.8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Balance Semanal</h4>
-                        <div style="font-size: 2.2rem; font-weight: 800; margin: 5px 0;">
-                            {{ horas_totales_semana | default('0.0') }} 
-                            <span style="font-size: 1rem; opacity: 0.7; font-weight: 400;">/ {{ user.horas_contratadas }}h</span>
-                        </div>
-                    </div>
-                    <div style="text-align: right;">
-                        <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold;">
-                            {{ porc_semanal | default(0) }}%
-                        </span>
-                    </div>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); height: 12px; border-radius: 10px; margin-top: 15px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="background: linear-gradient(90deg, #10b981, #34d399); width: {{ porc_semanal | default(0) }}%; height: 100%; border-radius: 10px; transition: width 1.5s ease;"></div>
-                </div>
-            </div>
-
             <div class="card">
                 <div class="header-card" style="display: flex; justify-content: center; align-items: center;">
                     <h2 style="font-size: 1.2rem; margin: 0;">Estado de la jornada</h2>
@@ -229,6 +257,8 @@
                 firstDay: 1,
                 height: 'auto',
                 headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
+                dayMaxEvents: window.innerWidth < 768 ? 2 : 3, // Menos eventos en móviles
+                moreLinkClick: 'popover', // Mejor UX en móviles
                 
                 events: [
                     {% for r in historial %}
