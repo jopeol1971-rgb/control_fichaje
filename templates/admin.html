@@ -136,11 +136,49 @@
                 align-items: flex-start;
                 gap: 10px;
             }
+            .admin-top-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 14px;
+            }
+            .admin-top-actions {
+                justify-content: space-between;
+                width: 100%;
+                gap: 8px;
+            }
+            .admin-top-actions a {
+                flex: 1 1 48%;
+                min-width: calc(50% - 8px);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .admin-top-actions a:last-child {
+                flex: 1 1 100%;
+                min-width: 100%;
+            }
             .search-input {
+                min-width: 0;
+                width: 100%;
+            }
+            form[method="GET"] {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            form[method="GET"] > div {
+                width: 100%;
+            }
+            form[method="GET"] .search-input {
                 min-width: 100%;
             }
             .fc {
                 font-size: 0.8rem;
+            }
+            .card {
+                padding: 1rem;
+            }
+            .fc, .fc .fc-daygrid-day-frame {
+                min-height: auto !important;
             }
         }
     </style>

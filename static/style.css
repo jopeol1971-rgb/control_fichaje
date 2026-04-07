@@ -1,17 +1,23 @@
 /* --- 1. CONFIGURACIÓN DE PÁGINA Y FONDO --- */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden; /* Crucial: Evita scroll lateral en toda la web */
+    margin: 0;
+    padding: 0;
+}
+
 body { 
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
     min-height: 100vh; 
-    margin: 0;
-    padding: 0;
     background: linear-gradient(135deg, #1e293b 0%, #334155 100%); 
     color: #1e293b;
 }
 
 .container {
-    max-width: 1400px; /* Expandido para dar aire al calendario */
+    max-width: 1400px; 
     margin: 0 auto;
     padding: 20px;
+    box-sizing: border-box; /* Asegura que el padding no sume ancho extra */
 }
 
 /* --- 2. ESPECÍFICO PARA LOGIN (MEJORADO) --- */
@@ -27,7 +33,7 @@ body {
     width: 100%;
     max-width: 400px;
     padding: 3rem 2.5rem;
-    background: rgba(255, 255, 255, 0.95); /* Más opaco para mejor lectura */
+    background: rgba(255, 255, 255, 0.95); 
     backdrop-filter: blur(10px);
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
@@ -172,7 +178,7 @@ body {
     text-align: center;
 }
 
-/* --- 5. NAVEGACIÓN (FLOTANTE E INTEGRADA) --- */
+/* --- 5. NAVEGACIÓN --- */
 nav { 
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(12px);
@@ -269,17 +275,11 @@ nav {
     cursor: default;
 }
 
-.btn:hover:not(.active):not(:disabled) {
-    transform: translateY(-2px);
-    filter: brightness(1.1);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-}
-
 .btn-primary {
     opacity: 1 !important;
     filter: none !important;
     background-color: #10b981;
-    width: 100%; /* Para el login */
+    width: 100%; 
     border-radius: 12px;
 }
 
@@ -305,54 +305,28 @@ nav {
     font-variant-numeric: tabular-nums; 
 }
 
-.cronometro-box.pausa { border-left-color: #f59e0b; background: rgba(255, 251, 235, 0.7); }
-.cronometro-box.acumulado { border-left-color: #10b981; background: rgba(240, 253, 244, 0.7); }
+/* --- 8. AJUSTES DEL CALENDARIO --- */
+.fc .fc-daygrid-day-frame { min-height: 120px !important; }
+.fc-scroller { overflow: hidden !important; }
 
-.reloj-digital { 
-    font-size: 1.8rem; 
-    font-weight: bold; 
-    color: #1e293b; 
-    background: rgba(248, 250, 252, 0.8);
-    padding: 8px 15px;
-    border-radius: 8px;
-}
-
-/* --- 8. AJUSTES DEL CALENDARIO (FULLCALENDAR) --- */
-.fc .fc-daygrid-day-frame {
-    min-height: 120px !important;
-}
-
-.fc-scroller {
-    overflow: hidden !important;
-}
-
-.fc-daygrid-event {
-    font-size: 0.85rem !important;
-    padding: 3px 5px !important;
-    margin-bottom: 2px !important;
-}
-
-/* --- 9. INPUTS, ALERTAS Y UI (ESTILO UNIFICADO) --- */
+/* --- 9. INPUTS, ALERTAS Y UI --- */
 .form-input {
-    width: 100%;
+    width: 100% !important;   /* Ocupa el 100% del contenedor padre */
+    box-sizing: border-box !important; /* El padding no estira el ancho */
     padding: 16px;
     margin-bottom: 1.2rem;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     font-size: 0.95rem;
-    box-sizing: border-box;
     background: #ffffff;
     transition: all 0.2s ease;
+    display: block;
 }
 
 .form-input:focus {
     outline: none;
     border-color: #10b981;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
-
-.form-input::placeholder {
-    color: #94a3b8;
 }
 
 .mensaje { 
@@ -362,83 +336,69 @@ nav {
     border: 1px solid #e2e8f0;
     color: #64748b; 
     margin-top: 1rem; 
-    font-size: 0.9rem;
 }
 
-.alerta-error {
-    background-color: rgba(254, 242, 242, 0.9);
-    color: #b91c1c;
-    padding: 15px;
-    border-radius: 10px;
-    border: 1px solid #fee2e2;
-}
-
-.link-secundario { 
-    color: #64748b; 
-    text-decoration: none; 
-    font-size: 0.95rem; 
-    font-weight: 600;
-}
 /* --- 10. CORRECCIONES PARA SMARTPHONE (RESPONSIVE) --- */
 @media (max-width: 600px) {
-    /* Ajuste del contenedor principal */
     .container {
         padding: 8px 10px;
     }
 
-    /* Rediseño del Nav: Ahora compacto y horizontal */
+    /* Navegación horizontal compacta */
     nav {
         display: flex !important;
-        flex-direction: row !important; /* Fuerza una sola línea */
+        flex-direction: row !important;
         justify-content: space-between !important;
         align-items: center !important;
-        padding: 0 10px !important;
-        height: 50px !important;        /* Altura reducida fija */
+        padding: 0 8px !important; /* Espacio mínimo lateral */
+        height: 50px !important;
         min-height: 50px !important;
         width: 100% !important;
-        margin: 0 0 10px 0 !important;  /* Pega la barra a los bordes */
+        margin: 0 0 10px 0 !important;
         border-radius: 0 !important;
         gap: 0 !important;
+        box-sizing: border-box;
     }
 
     .nav-logo-container {
         order: unset; 
         display: flex;
         justify-content: center;
-        flex: 0;
+        flex: 1; /* El logo se mantiene al centro si los iconos laterales son simétricos */
     }
 
     .nav-logo {
-        height: 28px !important; /* Reduce el tamaño del logo */
+        height: 26px !important;
     }
 
     .nav-links {
         order: unset;
-        flex: 1;
+        flex: 0 1 auto;
         justify-content: flex-end;
-        gap: 10px;
+        gap: 8px !important;
     }
 
-    /* Ocultar textos para ganar espacio horizontal */
+    /* Ocultar textos innecesarios para ganar espacio horizontal */
     .nav-links a span, 
     .nav-text {
         display: none !important; 
     }
 
     .nav-links a {
-        font-size: 1.1rem; 
-        min-height: 40px; /* Tamaño táctil sin estirar la barra */
-        padding: 0 5px;
+        font-size: 1.2rem !important; 
+        padding: 0 4px !important;
+        min-height: 44px; /* Tamaño táctil estándar */
+        display: flex;
+        align-items: center;
     }
 
     /* Ajuste de Cards */
     .card {
         padding: 1.2rem; 
         border-radius: 15px;
-        margin-bottom: 15px;
     }
 
-    /* Dashboard: Botones y Cronómetros */
+    /* Dashboard: Botones a una columna */
     .button-group {
         grid-template-columns: 1fr; 
         gap: 8px;
@@ -448,20 +408,9 @@ nav {
         font-size: 1.8rem; 
     }
 
-    .reloj-digital {
-        font-size: 1.3rem;
-        padding: 5px 10px;
-    }
-
-    /* Ajuste de Login en móvil */
-    .login-card {
-        margin: 15px;
-        padding: 1.5rem;
-    }
-
-    /* Inputs sin zoom automático en iOS */
+    /* Inputs optimizados para móvil */
     .form-input {
-        font-size: 16px !important; 
-        padding: 12px;
+        font-size: 16px !important; /* Previene el zoom automático de iOS */
+        padding: 12px !important;
     }
 }
