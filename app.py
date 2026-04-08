@@ -188,7 +188,7 @@ def index():
         total_segundos_semana += (ahora - ultimo_fichaje.timestamp).total_seconds()
 
     horas_totales_semana = round(total_segundos_semana / 3600, 1)
-    objetivo_semanal = 20 
+    objetivo_semanal = user.horas_contratadas
     porc_semanal = min(int((horas_totales_semana / objetivo_semanal) * 100), 100)
 
     # --- 2. LÓGICA DIARIA EXISTENTE ---
@@ -308,21 +308,27 @@ def fichaje_manual():
 
     if request.method == 'POST':
         fecha_str = request.form.get('fecha')
-        horas = request.form.get('horas', type=float)
+        h_entrada = request.form.get('hora_entrada') # Nuevo
+        h_salida = request.form.get('hora_salida')   # Nuevo
         comentario = request.form.get('comentario')
 
-        if not fecha_str or not horas:
-            flash("⚠️ Indica fecha y horas.")
+        if not fecha_str or not h_entrada or not h_salida:
+            flash("⚠️ Indica fecha, hora de entrada y salida.")
             return redirect(url_for('fichaje_manual'))
 
-        entrada_dt = datetime.strptime(f"{fecha_str} 09:00:00", "%Y-%m-%d %H:%M:%S")
-        salida_dt = entrada_dt + timedelta(hours=horas)
-
         try:
-            # Determinamos el estado: 'aprobado' para admin, 'pendiente' para el resto
+            # Combinamos la fecha con las horas elegidas
+            entrada_dt = datetime.strptime(f"{fecha_str} {h_entrada}", "%Y-%m-%d %H:%M")
+            salida_dt = datetime.strptime(f"{fecha_str} {h_salida}", "%Y-%m-%d %H:%M")
+
+            # Validación: que la salida no sea anterior a la entrada
+            if salida_dt <= entrada_dt:
+                flash("❌ La hora de salida debe ser posterior a la de entrada.")
+                return redirect(url_for('fichaje_manual'))
+
             estado_final = 'aprobado' if session.get('rol') == 'admin' else 'pendiente'
 
-            # Creamos los fichajes con el estado calculado
+            # Creamos los registros
             f_entrada = Fichaje(
                 usuario_id=session['user_id'],
                 tipo='entrada',
@@ -342,12 +348,7 @@ def fichaje_manual():
             db.session.add(f_salida)
             db.session.commit()
             
-            # Mensaje personalizado según si requiere revisión o no
-            if estado_final == 'aprobado':
-                flash(f"✅ Horas registradas y aprobadas: {horas}h el día {fecha_str}")
-            else:
-                flash(f"✅ Horas enviadas a revisión: {horas}h el día {fecha_str}")
-            
+            flash(f"✅ Horario registrado: {h_entrada} a {h_salida}")
             return redirect(url_for('index'))
             
         except Exception as e:
@@ -400,104 +401,104 @@ def admin_panel(user_id=None):
 
 @app.route('/admin/exportar')
 def exportar_csv():
-    if session.get('rol') != 'admin':
-        return redirect(url_for('index'))
+    if session.get('rol') != 'admin': return redirect(url_for('login'))
 
-    fichajes = Fichaje.query.order_by(Fichaje.timestamp.desc()).all()
+    u_id = request.args.get('usuario_id')
+    desde = request.args.get('desde')
+    hasta = request.args.get('hasta')
+
+    query = Fichaje.query
+    if u_id and u_id != "":
+        query = query.filter_by(usuario_id=u_id)
+    if desde:
+        query = query.filter(Fichaje.timestamp >= desde)
+    if hasta:
+        query = query.filter(Fichaje.timestamp <= f"{hasta} 23:59:59")
+
+    fichajes = query.order_by(Fichaje.timestamp.desc()).all()
     
-    # CORRECCIÓN AQUÍ: Añade "io." delante de StringIO
     output = io.StringIO() 
     writer = csv.writer(output)
-    
     writer.writerow(['ID', 'Empleado', 'DNI/NIE', 'Tipo', 'Fecha', 'Hora', 'Estado'])
     
     for f in fichajes:
         writer.writerow([
-            f.id, 
-            f.usuario.nombre, 
-            f.usuario.dni or "N/A", 
-            f.tipo.capitalize(), 
-            f.timestamp.strftime('%Y-%m-%d'),
-            f.timestamp.strftime('%H:%M:%S'),
-            (f.estado or "pendiente").capitalize()
+            f.id, f.usuario.nombre, f.usuario.dni or "N/A", 
+            f.tipo.capitalize(), f.timestamp.strftime('%Y-%m-%d'),
+            f.timestamp.strftime('%H:%M:%S'), (f.estado or "pendiente").capitalize()
         ])
     
-    fecha_archivo = datetime.now().strftime("%Y_%m_%d")
     return Response(
-        output.getvalue(), 
-        mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename=fichajes_{fecha_archivo}.csv"}
+        output.getvalue(), mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename=fichajes_filtrados.csv"}
     )
 @app.route('/admin/exportar_pdf')
 def exportar_pdf():
-    if session.get('rol') != 'admin':
-        return redirect(url_for('index'))
+    if session.get('rol') != 'admin': return redirect(url_for('login'))
 
-    # 1. Obtener los datos de la base de datos
-    fichajes = Fichaje.query.order_by(Fichaje.timestamp.desc()).all()
+    u_id = request.args.get('usuario_id')
+    desde = request.args.get('desde')
+    hasta = request.args.get('hasta')
+
+    query = Fichaje.query
+    if u_id and u_id != "":
+        query = query.filter_by(usuario_id=u_id)
+    if desde:
+        query = query.filter(Fichaje.timestamp >= desde)
+    if hasta:
+        query = query.filter(Fichaje.timestamp <= f"{hasta} 23:59:59")
+
+    fichajes = query.order_by(Fichaje.timestamp.desc()).all()
     
-    # 2. Preparar el documento en memoria
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
     elements = []
     styles = getSampleStyleSheet()
 
-    # Título
-    titulo = f"Informe General de Fichajes - {datetime.now().strftime('%d/%m/%Y')}"
-    elements.append(Paragraph(titulo, styles['Title']))
+    elements.append(Paragraph(f"Informe de Fichajes Filtrado - {datetime.now().strftime('%d/%m/%Y')}", styles['Title']))
     elements.append(Spacer(1, 12))
 
-    # 3. Estructura de la tabla (Cabeceras y datos)
-    data = [['Empleado', 'DNI', 'Tipo', 'Fecha', 'Hora', 'Estado', 'IP']]
+    data = [['Empleado', 'DNI', 'Tipo', 'Fecha', 'Hora', 'Estado']]
     for f in fichajes:
         data.append([
-            f.usuario.nombre,
-            f.usuario.dni or "N/A",
-            f.tipo.capitalize(),
-            f.timestamp.strftime('%Y-%m-%d'),
-            f.timestamp.strftime('%H:%M:%S'),
-            f.estado.capitalize(),
-            f.ip_origen
+            f.usuario.nombre, f.usuario.dni or "N/A", f.tipo.capitalize(),
+            f.timestamp.strftime('%Y-%m-%d'), f.timestamp.strftime('%H:%M:%S'),
+            f.estado.capitalize()
         ])
 
-    # 4. Estilo de la tabla
     tabla = Table(data)
     tabla.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')), # Azul oscuro
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
     ]))
     
     elements.append(tabla)
     doc.build(elements)
-
-    # 5. Envío del archivo
     buffer.seek(0)
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"fichajes_{datetime.now().strftime('%Y%m%d')}.pdf",
-        mimetype='application/pdf'
-    )
+    return send_file(buffer, as_attachment=True, download_name="fichajes_filtrados.pdf", mimetype='application/pdf')
 
 @app.route('/admin/informe')
 def admin_informe():
     if session.get('rol') != 'admin':
         return redirect(url_for('index'))
 
-    # 1. CAPTURAR FILTROS DEL FORMULARIO
+    # 1. CAPTURAR FILTROS (ID, Nombre y Fechas)
+    u_id = request.args.get('usuario_id')
     nombre_buscado = request.args.get('nombre_empleado', '').strip()
     fecha_inicio = request.args.get('desde')
     fecha_fin = request.args.get('hasta')
 
     # 2. FILTRAR USUARIOS
     query_usuarios = Usuario.query
-    if nombre_buscado:
-        # Filtra por nombre o apellidos que contengan el texto buscado
+    
+    if u_id:
+        # Si tenemos ID, vamos directos al usuario
+        query_usuarios = query_usuarios.filter(Usuario.id == u_id)
+    elif nombre_buscado:
+        # Si no hay ID pero sí texto, buscamos por nombre
         query_usuarios = query_usuarios.filter(
             (Usuario.nombre.ilike(f"%{nombre_buscado}%")) | 
             (Usuario.apellidos.ilike(f"%{nombre_buscado}%"))
@@ -506,12 +507,9 @@ def admin_informe():
     usuarios = query_usuarios.all()
     informe_final = []
     ahora = datetime.now()
-    mes_actual = ahora.month
-    semana_actual = ahora.isocalendar()[1]
 
     # 3. PROCESAR DATOS POR USUARIO
     for u in usuarios:
-        # Aplicamos filtro de fecha también a los fichajes para que el cálculo diario sea correcto
         query_fichajes = Fichaje.query.filter_by(usuario_id=u.id)
         
         if fecha_inicio:
@@ -521,8 +519,7 @@ def admin_informe():
             
         fichajes_u = query_fichajes.order_by(Fichaje.timestamp.asc()).all()
         
-        # Si el usuario no tiene fichajes en ese rango y estamos filtrando, saltamos al siguiente
-        if not fichajes_u and (nombre_buscado or fecha_inicio or fecha_fin):
+        if not fichajes_u:
             continue
 
         horas_dia = calcular_horas_diarias(fichajes_u)
@@ -535,10 +532,10 @@ def admin_informe():
                 f_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
                 s_netos = datos.get('segundos_netos', 0)
                 
-                # Sumatorios para las tarjetas superiores
-                if f_dt.month == mes_actual:
+                # Sumatorios (Se mantienen los del mes/semana actual según lógica previa)
+                if f_dt.month == ahora.month:
                     seg_mes += s_netos
-                if f_dt.isocalendar()[1] == semana_actual:
+                if f_dt.isocalendar()[1] == ahora.isocalendar()[1]:
                     seg_semana += s_netos
             except:
                 continue
@@ -550,11 +547,11 @@ def admin_informe():
             'total_mensual': formatear_segundos_a_hhmm(seg_mes)
         })
 
-    # Pasamos las variables de filtro de vuelta al HTML para que se mantengan en los inputs
     return render_template('informe.html', 
                            informe=informe_final, 
-                           empleados=Usuario.query.all(), # Para el datalist
-                           filtro_user={'nombre': nombre_buscado}, # Para rellenar el buscador
+                           empleados=Usuario.query.all(),
+                           nombre_buscado=nombre_buscado,
+                           usuario_id=u_id,
                            fecha_inicio=fecha_inicio,
                            fecha_fin=fecha_fin)
 

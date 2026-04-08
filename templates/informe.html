@@ -15,22 +15,33 @@
         padding: 20px; 
         border-radius: 12px; 
         border: 1px solid #e2e8f0; 
-        margin-bottom: 25px; 
+        margin-bottom: 10px;
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
 
-    .stats-group {
-        display: flex; 
-        gap: 15px;
+    .export-actions {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 25px;
     }
 
-    .stat-card {
-        padding: 10px 18px; 
-        border-radius: 10px; 
-        text-align: center; 
-        min-width: 100px;
-        flex: 1; /* Hace que crezcan equitativamente */
+    .btn-export {
+        text-decoration: none;
+        padding: 8px 15px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: opacity 0.2s;
+        cursor: pointer;
     }
+
+    .btn-export:hover { opacity: 0.8; }
+
+    .stats-group { display: flex; gap: 15px; }
+    .stat-card { padding: 10px 18px; border-radius: 10px; text-align: center; min-width: 100px; flex: 1; }
 
     .empleado-info-header {
         display: flex; 
@@ -41,147 +52,158 @@
         border-bottom: 2px solid #f1f5f9;
     }
 
-    /* --- AJUSTES PARA MÓVIL --- */
     @media (max-width: 600px) {
-        .informe-header {
+        .informe-header, .empleado-info-header, .export-actions {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
             gap: 10px;
         }
-
-        .empleado-info-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 15px;
-        }
-
-        .stats-group {
-            width: 100%; /* Ocupa todo el ancho */
-            justify-content: space-between;
-        }
-
-        .stat-card {
-            min-width: 0; /* Permite que se encojan */
-            padding: 8px;
-        }
-
-        #employeeSearch {
-            min-width: 100% !important;
-        }
+        .stats-group { width: 100%; justify-content: space-between; }
     }
 </style>
 
-    <div class="informe-header">
-        <h2 style="margin: 0; color: #1e293b;">Informe de Horas</h2>
-        <a href="/admin/panel" style="text-decoration: none; color: #6366f1; font-weight: 600;">⬅️ Volver al Panel</a>
-    </div>
+<div class="informe-header">
+    <h2 style="margin: 0; color: #1e293b;">Informe de Horas</h2>
+    <a href="/admin/panel" style="text-decoration: none; color: #6366f1; font-weight: 600;">⬅️ Volver al Panel</a>
+</div>
 
-    <div class="filtros-container">
-        <form method="GET" action="{{ request.path }}" id="filterForm" style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+<div class="filtros-container">
+    <form method="GET" action="{{ request.path }}" id="filterForm" style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+        
+        <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 250px;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">👤 EMPLEADO:</label>
+            <input type="text" 
+                   id="employeeSearch" 
+                   name="nombre_empleado" 
+                   list="employeesList" 
+                   placeholder="Escribe para buscar..." 
+                   style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; width: 100%; box-sizing: border-box;"
+                   value="{{ request.args.get('nombre_empleado', '') }}"
+                   autocomplete="off">
             
-            <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 250px;">
-                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">👤 EMPLEADO:</label>
-                <input type="text" 
-                       id="employeeSearch" 
-                       name="nombre_empleado" 
-                       list="employeesList" 
-                       placeholder="Escribe para buscar..." 
-                       style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; width: 100%; box-sizing: border-box;"
-                       value="{% if filtro_user %}{{ filtro_user.nombre }}{% endif %}"
-                       autocomplete="off">
-                
-                <input type="hidden" name="usuario_id" id="usuario_id_hidden" value="{{ filtro_user.id if filtro_user else '' }}">
+            <input type="hidden" name="usuario_id" id="usuario_id_hidden" value="{{ request.args.get('usuario_id', '') }}">
 
-                <datalist id="employeesList">
-                    {% for emp in empleados %}
-                        <option data-id="{{ emp.id }}" value="{{ emp.nombre }}"></option>
+            <datalist id="employeesList">
+                {% for emp in empleados %}
+                    <option data-id="{{ emp.id }}" value="{{ emp.nombre }} {{ emp.apellidos }}"></option>
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">📅 DESDE:</label>
+                <input type="date" name="desde" value="{{ request.args.get('desde', '') }}" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">📅 HASTA:</label>
+                <input type="date" name="hasta" value="{{ request.args.get('hasta', '') }}" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc;">
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; width: 100%;">
+            <button type="submit" style="background: #1e293b; color: white; border: none; padding: 11px 20px; border-radius: 8px; cursor: pointer; font-weight: 700; flex: 1;">
+                🔍 Filtrar
+            </button>
+            {% if request.args.get('desde') or request.args.get('hasta') or request.args.get('nombre_empleado') %}
+                <a href="{{ request.path }}" style="background: #f1f5f9; color: #64748b; text-decoration: none; padding: 11px 15px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; border: 1px solid #e2e8f0; display: flex; align-items: center;">
+                    Limpiar
+                </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="export-actions">
+    <a href="#" id="btnExportCSV" class="btn-export" style="background: #ecfdf5; color: #059669; border: 1px solid #10b981;">
+        📊 Descargar CSV
+    </a>
+    <a href="#" id="btnExportPDF" class="btn-export" style="background: #fff1f2; color: #e11d48; border: 1px solid #f43f5e;">
+        📄 Descargar PDF
+    </a>
+</div>
+
+{% for item in informe %}
+    <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        
+        <div class="empleado-info-header">
+            <h3 style="margin: 0; color: #1e293b; font-size: 1.2rem;">Empleado: <span style="color: #6366f1;">{{ item.nombre }}</span></h3>
+            
+            <div class="stats-group">
+                <div class="stat-card" style="background: #f0fdf4; border: 1px solid #dcfce7;">
+                    <small style="display: block; color: #166534; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Esta Semana</small>
+                    <span style="color: #16a34a; font-size: 1.1rem; font-weight: 800;">{{ item.total_semanal }}</span>
+                </div>
+                <div class="stat-card" style="background: #eef2ff; border: 1px solid #e0e7ff;">
+                    <small style="display: block; color: #3730a3; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Este Mes</small>
+                    <span style="color: #6366f1; font-size: 1.1rem; font-weight: 800;">{{ item.total_mensual }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto; margin: 0 -20px; padding: 0 20px;">
+            <table style="width: 100%; border-collapse: collapse; min-width: 500px;">
+                <thead>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: left; color: #64748b; font-size: 0.75rem;">Fecha</th>
+                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 0.75rem;">Ent.</th>
+                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 0.75rem;">Sal.</th>
+                        <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: right; color: #64748b; font-size: 0.75rem;">Neto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fecha, datos in item.dias.items() %}
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 10px; border: 1px solid #e2e8f0; color: #1e293b; font-weight: 500; font-size: 0.9rem;">{{ fecha }}</td>
+                        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; color: #334155; font-size: 0.9rem;">{{ datos.entrada.strftime('%H:%M') if datos.entrada else '-' }}</td>
+                        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; color: #334155; font-size: 0.9rem;">{{ datos.salida.strftime('%H:%M') if datos.salida else '-' }}</td>
+                        <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #059669; font-size: 0.9rem;">{{ datos.total_horas }}</td>
+                    </tr>
                     {% endfor %}
-                </datalist>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">📅 DESDE:</label>
-                    <input type="date" name="desde" value="{{ fecha_inicio or '' }}" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc;">
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">📅 HASTA:</label>
-                    <input type="date" name="hasta" value="{{ fecha_fin or '' }}" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc;">
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 10px; width: 100%;">
-                <button type="submit" style="background: #1e293b; color: white; border: none; padding: 11px 20px; border-radius: 8px; cursor: pointer; font-weight: 700; flex: 1;">
-                    🔍 Filtrar
-                </button>
-                {% if fecha_inicio or fecha_fin or filtro_user or request.args.get('nombre_empleado') %}
-                    <a href="{{ request.path }}" style="background: #f1f5f9; color: #64748b; text-decoration: none; padding: 11px 15px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; border: 1px solid #e2e8f0; display: flex; align-items: center;">
-                        Limpiar
-                    </a>
-                {% endif %}
-            </div>
-        </form>
+                </tbody>
+            </table>
+        </div>
     </div>
-    
-    {% for item in informe %}
-        <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-            
-            <div class="empleado-info-header">
-                <h3 style="margin: 0; color: #1e293b; font-size: 1.2rem;">Empleado: <span style="color: #6366f1;">{{ item.nombre }}</span></h3>
-                
-                <div class="stats-group">
-                    <div class="stat-card" style="background: #f0fdf4; border: 1px solid #dcfce7;">
-                        <small style="display: block; color: #166534; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Semana</small>
-                        <span style="color: #16a34a; font-size: 1.1rem; font-weight: 800;">{{ item.total_semanal | default('00:00') }}</span>
-                    </div>
-                    <div class="stat-card" style="background: #eef2ff; border: 1px solid #e0e7ff;">
-                        <small style="display: block; color: #3730a3; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Mes</small>
-                        <span style="color: #6366f1; font-size: 1.1rem; font-weight: 800;">{{ item.total_mensual | default('00:00') }}</span>
-                    </div>
-                </div>
-            </div>
+{% else %}
+    <div style="text-align: center; padding: 40px; color: #64748b; background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 20px;">
+        <p>No se encontraron registros.</p>
+    </div>
+{% endfor %}
 
-            <div style="overflow-x: auto; margin: 0 -20px; padding: 0 20px;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 500px;">
-                    <thead>
-                        <tr style="background: #f8fafc;">
-                            <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: left; color: #64748b; font-size: 0.75rem;">Fecha</th>
-                            <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 0.75rem;">Ent.</th>
-                            <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 0.75rem;">Sal.</th>
-                            <th style="padding: 12px; border: 1px solid #e2e8f0; text-align: right; color: #64748b; font-size: 0.75rem;">Neto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for fecha, datos in item.dias.items() %}
-                        <tr style="border-bottom: 1px solid #f1f5f9;">
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; color: #1e293b; font-weight: 500; font-size: 0.9rem;">{{ fecha }}</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; color: #334155; font-size: 0.9rem;">{{ datos.entrada.strftime('%H:%M') if datos.entrada else '-' }}</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; color: #334155; font-size: 0.9rem;">{{ datos.salida.strftime('%H:%M') if datos.salida else '-' }}</td>
-                            <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #059669; font-size: 0.9rem;">{{ datos.total_horas }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    {% else %}
-        <div style="text-align: center; padding: 40px; color: #64748b; background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 20px;">
-            <p>No se encontraron registros.</p>
-        </div>
-    {% endfor %}
+<script>
+    // Función para actualizar los enlaces de exportación con los filtros actuales
+    function updateExportLinks() {
+        const usuarioId = document.getElementById('usuario_id_hidden').value;
+        const desde = document.querySelector('input[name="desde"]').value;
+        const hasta = document.querySelector('input[name="hasta"]').value;
+        
+        const params = new URLSearchParams({
+            usuario_id: usuarioId,
+            desde: desde,
+            hasta: hasta
+        }).toString();
 
-    <script>
-        document.getElementById('employeeSearch').addEventListener('input', function(e) {
-            const input = e.target;
-            const list = document.getElementById('employeesList');
-            const hiddenInput = document.getElementById('usuario_id_hidden');
-            const option = Array.from(list.options).find(opt => opt.value === input.value);
-            
-            if (option) {
-                hiddenInput.value = option.getAttribute('data-id');
-            } else {
-                hiddenInput.value = ""; 
-            }
-        });
-    </script>
+        document.getElementById('btnExportCSV').href = `{{ url_for('exportar_csv') }}?${params}`;
+        document.getElementById('btnExportPDF').href = `{{ url_for('exportar_pdf') }}?${params}`;
+    }
+
+    // Evento para el buscador de empleados
+    document.getElementById('employeeSearch').addEventListener('input', function(e) {
+        const input = e.target;
+        const list = document.getElementById('employeesList');
+        const hiddenInput = document.getElementById('usuario_id_hidden');
+        const option = Array.from(list.options).find(opt => opt.value === input.value);
+        
+        hiddenInput.value = option ? option.getAttribute('data-id') : "";
+        updateExportLinks();
+    });
+
+    // Eventos para cambios en fechas
+    document.querySelectorAll('input[type="date"]').forEach(el => {
+        el.addEventListener('change', updateExportLinks);
+    });
+
+    // Inicializar enlaces al cargar la página
+    window.onload = updateExportLinks;
+</script>
 {% endblock %}

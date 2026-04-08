@@ -147,11 +147,13 @@
                 gap: 8px;
             }
             .admin-top-actions a {
-                flex: 1 1 48%;
-                min-width: calc(50% - 8px);
+                flex: 1 1 100%;
+                min-width: 100%;
                 white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 12px; /* Un poco más de aire para el dedo */
             }
             .admin-top-actions a:last-child {
                 flex: 1 1 100%;
@@ -189,12 +191,14 @@
                 <h2 style="color: white; font-weight: 800;">Panel de Administración</h2>
                 <p class="admin-subtitle">Controla fichajes, revisa solicitudes y genera informes en un solo lugar.</p>
             </div>
-            <div class="admin-top-actions">
+           <div class="admin-top-actions">
                 <a href="/admin/nuevo_empleado" class="btn btn-entrada" style="text-decoration: none;">➕ Nuevo Empleado</a>
-                <a href="/admin/exportar" class="btn" style="background: #3b82f6; text-decoration: none;">📥 CSV</a>
-                <a href="/admin/exportar_pdf" class="btn" style="background: #ef4444; text-decoration: none;">📄 PDF</a>
-                <a href="/admin/informe" class="btn" style="background: #8b5cf6; text-decoration: none;">📊 Informe Horas</a>
-                <a href="/" style="text-decoration: none; color: #64748b; font-weight: bold;">⬅️ Inicio</a>
+    
+                <a href="/admin/informe" class="btn" style="background: #8b5cf6; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    📊 <span>Informe Horas y Exportar</span>
+                </a>
+    
+                <a href="/" style="text-decoration: none; color: #64748b; font-weight: bold; margin-left: 10px;">⬅️ Inicio</a>
             </div>
         </div>
 
