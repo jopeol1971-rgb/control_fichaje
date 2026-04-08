@@ -300,6 +300,30 @@ def registrar_fichaje(tipo):
         flash(f"Error al registrar: {str(e)}")
         
     return redirect(url_for('index'))
+@app.route('/admin/crear_fichaje', methods=['POST'])
+def admin_crear_fichaje():
+    if session.get('rol') != 'admin':
+        return redirect(url_for('index'))
+    
+    user_id = request.form.get('user_id')
+    tipo = request.form.get('tipo') # 'salida' o 'descanso'
+    fecha_hora = request.form.get('fecha_hora') # Formato 'YYYY-MM-DDTHH:MM'
+    
+    try:
+        nuevo_fichaje = Fichaje(
+            usuario_id=user_id,
+            tipo=tipo,
+            timestamp=datetime.strptime(fecha_hora, '%Y-%m-%dT%H:%M'),
+            estado='aprobado',
+            motivo_edicion=f"Añadido por Admin: Registro faltante ({tipo})"
+        )
+        db.session.add(nuevo_fichaje)
+        db.session.commit()
+        flash(f"✅ {tipo.capitalize()} añadido correctamente.")
+    except Exception as e:
+        flash(f"❌ Error: {str(e)}")
+        
+    return redirect(url_for('admin_panel'))
 
 @app.route('/fichaje_manual', methods=['GET', 'POST'])
 def fichaje_manual():

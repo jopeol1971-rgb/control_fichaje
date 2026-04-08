@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
 
     <style>
@@ -251,6 +252,42 @@
             <div id="calendar-admin"></div>
         </div>
 
+        <div class="card" style="padding: 15px;">
+            <div id="calendar-admin"></div>
+        </div>
+
+        <h3 style="color: white; margin: 40px 0 15px 0; font-size: 1.5rem;">Añadir Registro Faltante</h3>
+        <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 20px; background: #f1f5f9; border: 2px solid #3b82f6;">
+            <form action="{{ url_for('admin_crear_fichaje') }}" method="POST" 
+                  style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 15px;">
+                
+                <div style="flex: 1; min-width: 200px;">
+                    <select name="user_id" class="search-input" style="width: 100%; min-width: 0;" required>
+                        <option value="" disabled selected>Seleccionar empleado...</option>
+                        {% for emp in empleados %}
+                            <option value="{{ emp.id }}">{{ emp.nombre }} ({{ emp.dni }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="width: 150px;">
+                    <select name="tipo" class="search-input" style="width: 100%; min-width: 0;" required>
+                        <option value="entrada">Entrada</option>
+                        <option value="descanso">Descanso</option>
+                        <option value="salida">Salida</option>
+                    </select>
+                </div>
+
+                <div>
+                    <input type="datetime-local" name="fecha_hora" class="search-input" style="min-width: 0;" required>
+                </div>
+
+                <button type="submit" class="btn btn-entrada" style="padding: 10px 20px; font-weight: bold;">
+                    ➕ AÑADIR REGISTRO
+                </button>
+            </form>
+        </div>
+    
         <h3 id="tabla-registros" style="color: white; margin: 40px 0 20px 0;">
             {% if filtro_user %}
                 Registros de: <span style="color: #3b82f6;">{{ filtro_user.nombre }}</span>
