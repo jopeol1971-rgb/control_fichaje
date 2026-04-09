@@ -11,8 +11,8 @@ class Usuario(db.Model):
     # --- Datos Identificativos ---
     nombre = db.Column(db.String(50), nullable=False)
     apellidos = db.Column(db.String(100), nullable=True)
-    dni = db.Column(db.String(20), unique=True, nullable=False)  # DNI/NIE (Obligatorio para legalidad)
-    nass = db.Column(db.String(20), unique=True, nullable=True)  # Seguridad Social
+    dni = db.Column(db.String(20), unique=True, nullable=False)  # DNI/NIE
+    nass = db.Column(db.String(20), unique=True, nullable=True)   # Seguridad Social
     
     # --- Contacto y Ubicación ---
     email = db.Column(db.String(120), unique=True, nullable=True)
@@ -20,7 +20,6 @@ class Usuario(db.Model):
     direccion = db.Column(db.String(255), nullable=True)
     
     # --- Configuración Laboral y Acceso ---
-    # Cambiado a nullable=False para asegurar que siempre haya un cálculo de progreso
     horas_contratadas = db.Column(db.Float, nullable=False, default=40.0) 
     rol = db.Column(db.String(20), default='empleado')
     password = db.Column(db.String(255), nullable=False)
@@ -41,13 +40,36 @@ class Fichaje(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     ip_origen = db.Column(db.String(45))
 
-    # --- NUEVO CAMPO PARA VALIDACIÓN ---
-    # Estados posibles: 'aprobado', 'pendiente', 'rechazado'
+    # --- VALIDACIÓN Y AUDITORÍA ---
     estado = db.Column(db.String(20), nullable=False, default='aprobado')
-    
-    # --- CAMPOS PARA AUDITORÍA ---
     editado_por_admin = db.Column(db.Boolean, default=False)
     motivo_edicion = db.Column(db.String(255), nullable=True)
     
-    # Relación para acceder a user.fichajes o fichaje.usuario
+    # Timestamp de creación real (Seguridad legal)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relación
     usuario = db.relationship('Usuario', backref=db.backref('fichajes', lazy=True))
+
+class InformeMensual(db.Model):
+    __tablename__ = 'informe_mensual'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    
+    mes = db.Column(db.Integer, nullable=False)
+    anio = db.Column(db.Integer, nullable=False)
+    
+    # Totales calculados para validez legal
+    horas_totales = db.Column(db.Float, nullable=False, default=0.0)
+    horas_extra = db.Column(db.Float, default=0.0)
+    
+    # --- LA FIRMA DIGITAL ---
+    aceptado_por_empleado = db.Column(db.Boolean, default=False)
+    fecha_firma = db.Column(db.DateTime, nullable=True)
+    ip_firma = db.Column(db.String(45), nullable=True)
+    
+    ruta_pdf = db.Column(db.String(255), nullable=True)
+
+    # Relación
+    usuario = db.relationship('Usuario', backref=db.backref('informes_mensuales', lazy=True))
+    
