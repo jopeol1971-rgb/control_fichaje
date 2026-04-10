@@ -52,6 +52,23 @@
         border-bottom: 2px solid #f1f5f9;
     }
 
+    .btn-cerrar-mes {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .btn-cerrar-mes:hover { background: #059669; }
+
     @media (max-width: 600px) {
         .informe-header, .empleado-info-header, .export-actions {
             flex-direction: column;
@@ -69,7 +86,6 @@
 
 <div class="filtros-container">
     <form method="GET" action="{{ request.path }}" id="filterForm" style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
-        
         <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 250px;">
             <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">👤 EMPLEADO:</label>
             <input type="text" 
@@ -80,9 +96,7 @@
                    style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; outline: none; width: 100%; box-sizing: border-box;"
                    value="{{ request.args.get('nombre_empleado', '') }}"
                    autocomplete="off">
-            
             <input type="hidden" name="usuario_id" id="usuario_id_hidden" value="{{ request.args.get('usuario_id', '') }}">
-
             <datalist id="employeesList">
                 {% for emp in empleados %}
                     <option data-id="{{ emp.id }}" value="{{ emp.nombre }} {{ emp.apellidos }}"></option>
@@ -125,9 +139,19 @@
 
 {% for item in informe %}
     <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-        
         <div class="empleado-info-header">
-            <h3 style="margin: 0; color: #1e293b; font-size: 1.2rem;">Empleado: <span style="color: #6366f1;">{{ item.nombre }}</span></h3>
+            <div>
+                <h3 style="margin: 0; color: #1e293b; font-size: 1.2rem;">Empleado: <span style="color: #6366f1;">{{ item.nombre }}</span></h3>
+                <form action="{{ url_for('cerrar_mes') }}" method="POST" style="margin-top: 10px;">
+                    <input type="hidden" name="usuario_id" value="{{ item.id }}">
+                    <input type="hidden" name="mes" value="{{ now.month }}">
+                    <input type="hidden" name="anio" value="{{ now.year }}">
+                    <input type="hidden" name="horas_totales" value="{{ item.total_mensual.replace(':', '.') }}">
+                    <button type="submit" class="btn-cerrar-mes">
+                        🔒 Cerrar Mes Oficial ({{ now.strftime('%B') }})
+                    </button>
+                </form>
+            </div>
             
             <div class="stats-group">
                 <div class="stat-card" style="background: #f0fdf4; border: 1px solid #dcfce7;">
@@ -171,7 +195,6 @@
 {% endfor %}
 
 <script>
-    // Función para actualizar los enlaces de exportación con los filtros actuales
     function updateExportLinks() {
         const usuarioId = document.getElementById('usuario_id_hidden').value;
         const desde = document.querySelector('input[name="desde"]').value;
@@ -187,7 +210,6 @@
         document.getElementById('btnExportPDF').href = `{{ url_for('exportar_pdf') }}?${params}`;
     }
 
-    // Evento para el buscador de empleados
     document.getElementById('employeeSearch').addEventListener('input', function(e) {
         const input = e.target;
         const list = document.getElementById('employeesList');
@@ -198,12 +220,10 @@
         updateExportLinks();
     });
 
-    // Eventos para cambios en fechas
     document.querySelectorAll('input[type="date"]').forEach(el => {
         el.addEventListener('change', updateExportLinks);
     });
 
-    // Inicializar enlaces al cargar la página
     window.onload = updateExportLinks;
 </script>
 {% endblock %}

@@ -20,7 +20,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 # 4. Módulos locales del proyecto
-from models import db, Usuario, Fichaje
+from models import db, Usuario, Fichaje, InformeMensual
 
 def formatear_segundos_a_hhmm(segundos):
     """Convierte segundos a formato string HH:MM"""
@@ -113,6 +113,65 @@ def calcular_horas_diarias(fichajes):
             datos['salida'] = None
             
     return resumen
+
+def generar_pdf_logic(u_id, desde=None, hasta=None):
+    # 1. Consulta de datos
+    query = Fichaje.query
+    if u_id and u_id != "":
+        query = query.filter_by(usuario_id=u_id)
+    if desde:
+        query = query.filter(Fichaje.timestamp >= desde)
+    if hasta:
+        query = query.filter(Fichaje.timestamp <= f"{hasta} 23:59:59")
+
+    fichajes = query.order_by(Fichaje.timestamp.asc()).all() # Ascendente para el PDF
+    
+    # 2. Configuración del documento
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), 
+                            rightMargin=30, leftMargin=30, 
+                            topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Título del Informe
+    titulo = f"Informe de Fichajes - Usuario {u_id}"
+    elements.append(Paragraph(titulo, styles['Title']))
+    elements.append(Paragraph(f"Periodo: {desde} al {hasta}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    # 3. Preparación de la Tabla
+    # Cabecera de la tabla
+    data = [['Fecha/Hora', 'Tipo', 'Usuario ID']] 
+    
+    # Filas de datos
+    for f in fichajes:
+        data.append([
+            f.timestamp,
+            f.tipo.upper(),
+            f.usuario_id
+        ])
+
+    # Estilo de la tabla
+    tabla = Table(data, colWidths=[200, 100, 100])
+    tabla.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#6366f1')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+    ]))
+    
+    elements.append(tabla)
+
+    # 4. Construcción del PDF
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 
 # --- RUTAS DE LA APLICACIÓN ---
 
@@ -384,6 +443,8 @@ def fichaje_manual():
 
 from flask import request # Asegúrate de tener importado request
 
+
+
 @app.route('/admin/panel')
 @app.route('/admin/empleado/<int:user_id>')
 def admin_panel(user_id=None):
@@ -456,53 +517,16 @@ def exportar_csv():
         output.getvalue(), mimetype="text/csv",
         headers={"Content-disposition": f"attachment; filename=fichajes_filtrados.csv"}
     )
-@app.route('/admin/exportar_pdf')
+@app.route('/exportar_pdf')
 def exportar_pdf():
     if session.get('rol') != 'admin': return redirect(url_for('login'))
-
+    
     u_id = request.args.get('usuario_id')
     desde = request.args.get('desde')
     hasta = request.args.get('hasta')
-
-    query = Fichaje.query
-    if u_id and u_id != "":
-        query = query.filter_by(usuario_id=u_id)
-    if desde:
-        query = query.filter(Fichaje.timestamp >= desde)
-    if hasta:
-        query = query.filter(Fichaje.timestamp <= f"{hasta} 23:59:59")
-
-    fichajes = query.order_by(Fichaje.timestamp.desc()).all()
     
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
-    elements = []
-    styles = getSampleStyleSheet()
-
-    elements.append(Paragraph(f"Informe de Fichajes Filtrado - {datetime.now().strftime('%d/%m/%Y')}", styles['Title']))
-    elements.append(Spacer(1, 12))
-
-    data = [['Empleado', 'DNI', 'Tipo', 'Fecha', 'Hora', 'Estado']]
-    for f in fichajes:
-        data.append([
-            f.usuario.nombre, f.usuario.dni or "N/A", f.tipo.capitalize(),
-            f.timestamp.strftime('%Y-%m-%d'), f.timestamp.strftime('%H:%M:%S'),
-            f.estado.capitalize()
-        ])
-
-    tabla = Table(data)
-    tabla.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-    ]))
-    
-    elements.append(tabla)
-    doc.build(elements)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name="fichajes_filtrados.pdf", mimetype='application/pdf')
+    pdf_buffer = generar_pdf_logic(u_id, desde, hasta)
+    return send_file(pdf_buffer, mimetype='application/pdf', download_name="reporte_admin.pdf")
 
 @app.route('/admin/informe')
 def admin_informe():
@@ -565,6 +589,7 @@ def admin_informe():
                 continue
 
         informe_final.append({
+            'id': u.id,
             'nombre': f"{u.nombre} {u.apellidos}", 
             'dias': horas_dia,
             'total_semanal': formatear_segundos_a_hhmm(seg_semana),
@@ -577,7 +602,38 @@ def admin_informe():
                            nombre_buscado=nombre_buscado,
                            usuario_id=u_id,
                            fecha_inicio=fecha_inicio,
-                           fecha_fin=fecha_fin)
+                           fecha_fin=fecha_fin,
+                           now=datetime.now())
+
+@app.route('/admin/cerrar_mes', methods=['POST'])
+def cerrar_mes():
+    if session.get('rol') != 'admin':
+        return redirect(url_for('index'))
+
+    u_id = request.form.get('usuario_id')
+    mes = int(request.form.get('mes'))
+    anio = int(request.form.get('anio'))
+    
+    # En lugar de confiar ciegamente en el form, 
+    # podrías recalcular o validar aquí los segundos_netos
+    horas_recibidas = float(request.form.get('horas_totales'))
+
+    existente = InformeMensual.query.filter_by(usuario_id=u_id, mes=mes, anio=anio).first()
+    if existente:
+        flash("⚠️ Ya existe un informe cerrado para este mes.")
+    else:
+        nuevo_informe = InformeMensual(
+            usuario_id=u_id,
+            mes=mes,
+            anio=anio,
+            horas_totales=horas_recibidas,
+            aceptado_por_empleado=False
+        )
+        db.session.add(nuevo_informe)
+        db.session.commit()
+        flash("✅ Mes cerrado. El empleado ya puede firmarlo en 'Mis Informes'.")
+
+    return redirect(url_for('admin_informe', usuario_id=u_id))
 
 @app.route('/admin/nuevo_empleado', methods=['GET', 'POST'])
 def nuevo_empleado():
@@ -702,6 +758,62 @@ def validar_fichaje(f_id, accion):
 
     db.session.commit()
     return redirect(url_for('admin_panel'))
+
+# --- RUTAS DE INFORMES Y FIRMAS ---
+
+from flask import send_file, make_response # Asegúrate de tener estas importaciones
+
+@app.route('/empleado/ver_pdf/<int:id>')
+def ver_pdf_personal(id):
+    informe = db.session.get(InformeMensual, id)
+    
+    if not informe or (informe.usuario_id != session['user_id'] and session.get('rol') != 'admin'):
+        flash("Acceso denegado.")
+        return redirect(url_for('ver_mis_informes'))
+
+    try:
+        # Calculamos el rango de fechas del mes del informe
+        import calendar
+        ultimo_dia = calendar.monthrange(informe.anio, informe.mes)[1]
+        desde = f"{informe.anio}-{informe.mes:02d}-01"
+        hasta = f"{informe.anio}-{informe.mes:02d}-{ultimo_dia}"
+
+        # Llamamos a la lógica común
+        pdf_buffer = generar_pdf_logic(u_id=informe.usuario_id, desde=desde, hasta=hasta)
+        
+        return send_file(pdf_buffer, mimetype='application/pdf', 
+                         download_name=f"informe_{informe.anio}_{informe.mes}.pdf")
+    except Exception as e:
+        flash(f"Error al generar el PDF: {str(e)}")
+        return redirect(url_for('ver_mis_informes'))
+
+
+@app.route('/empleado/firmar_informe/<int:informe_id>')
+def firmar_informe_empleado(informe_id): # Nombre cambiado
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    informe = db.session.get(InformeMensual, informe_id)
+    if informe and informe.usuario_id == session['user_id']:
+        informe.aceptado_por_empleado = True
+        informe.fecha_firma = datetime.now().strftime("%d/%m/%Y %H:%M")
+        informe.ip_firma = request.remote_addr 
+        db.session.commit()
+        flash("✅ Informe mensual firmado correctamente.")
+    else:
+        flash("❌ No tienes permiso para firmar este informe.")
+    return redirect(url_for('ver_mis_informes'))
+
+
+@app.route('/mis_informes')
+def ver_mis_informes():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    user = db.session.get(Usuario, session['user_id'])
+    informes = InformeMensual.query.filter_by(usuario_id=user.id).order_by(InformeMensual.anio.desc(), InformeMensual.mes.desc()).all()
+    
+    return render_template('mis_informes.html', informes=informes, user=user)
 
 # --- ARRANQUE DE LA APLICACIÓN ---
 

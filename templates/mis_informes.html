@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="top-hero">
+    <div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 20px;">
+        <div>
+            <h2 class="hero-title" style="margin: 0;">Mis Informes <span style="color: #6366f1;">Mensuales</span></h2>
+            <p class="hero-subtitle" style="margin: 5px 0 0 0;">Historial de registros y documentos firmados</p>
+        </div>
+        <a href="{{ url_for('index') }}" class="btn-volver">
+            <i class="fas fa-arrow-left"></i> Volver al Panel
+        </a>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 25px; padding: 0; overflow: hidden; border: none; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+            <tr>
+                <th class="th-style">Año / Mes</th>
+                <th class="th-style">Horas Totales</th>
+                <th class="th-style">Estado</th>
+                <th class="th-style" style="text-align: center;">Acción</th>
+            </tr>
+        </thead>
+        <tbody style="color: #1e293b; font-size: 0.95rem;">
+            {% set nombres_meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] %}
+            
+            {% for informe in informes %}
+            <tr class="tr-row">
+                <td style="padding: 20px 25px; font-weight: 600;">
+                    <i class="far fa-calendar-alt" style="color: #6366f1; margin-right: 8px;"></i>
+                    {{ nombres_meses[informe.mes|int] }} {{ informe.anio }}
+                </td>
+                <td style="padding: 20px 25px;">
+                    <span class="badge-horas">
+                        {{ "%.2f"|format(informe.horas_totales) }} h
+                    </span>
+                </td>
+                <td style="padding: 20px 25px;">
+                    {% if informe.aceptado_por_empleado %}
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="color: #10b981; display: flex; align-items: center; gap: 6px; font-weight: 600;">
+                            <i class="fas fa-check-circle"></i> Firmado
+                        </span>
+                        <small style="color: #94a3b8; font-size: 0.75rem; margin-left: 22px;">{{ informe.fecha_firma }}</small>
+                    </div>
+                    {% else %}
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <span style="color: #f59e0b; display: flex; align-items: center; gap: 6px; font-weight: 600;">
+                            <i class="fas fa-clock"></i> Pendiente
+                        </span>
+                        <button onclick="confirmarFirma('{{ informe.id }}')" class="btn-firmar">
+                            FIRMAR AHORA
+                        </button>
+                    </div>
+                    {% endif %}
+                </td>
+                <td style="padding: 20px 25px; text-align: center;">
+                    {# Usamos el nombre de la función ver_pdf_personal y pasamos id #}
+                    <a href="{{ url_for('ver_pdf_personal', id=informe.id) }}" class="btn-pdf" target="_blank">
+                        <i class="fas fa-file-pdf"></i> VER PDF
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="padding: 40px; text-align: center; color: #94a3b8;">
+                    <i class="fas fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.5;"></i>
+                    No hay informes disponibles todavía.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .th-style {
+        padding: 18px 25px; 
+        color: #64748b; 
+        font-weight: 700; 
+        text-transform: uppercase; 
+        font-size: 0.75rem; 
+        letter-spacing: 0.05em;
+    }
+    .tr-row {
+        border-bottom: 1px solid #f1f5f9; 
+        transition: background 0.2s;
+    }
+    .tr-row:hover {
+        background: #f8fafc;
+    }
+    .badge-horas {
+        background: #eef2ff; 
+        color: #4338ca; 
+        padding: 4px 12px; 
+        border-radius: 6px; 
+        font-weight: 700;
+    }
+    .btn-volver {
+        background: #f1f5f9; 
+        color: #475569; 
+        border: none; 
+        padding: 10px 20px; 
+        border-radius: 8px; 
+        font-weight: 600; 
+        text-decoration: none; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        transition: all 0.2s;
+    }
+    .btn-volver:hover {
+        background: #e2e8f0;
+        transform: translateY(-1px);
+    }
+    .btn-pdf {
+        background: #6366f1; 
+        color: white; 
+        padding: 8px 16px; 
+        border-radius: 8px; 
+        font-size: 0.8rem; 
+        font-weight: 700; 
+        text-decoration: none; 
+        display: inline-flex; 
+        align-items: center; 
+        gap: 8px; 
+        transition: all 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
+    }
+    .btn-pdf:hover {
+        background: #4f46e5;
+        transform: translateY(-1px);
+    }
+    .btn-firmar {
+        background: #fff7ed; 
+        color: #c2410c; 
+        border: 1px solid #fdba74; 
+        padding: 4px 12px; 
+        border-radius: 6px; 
+        font-size: 0.75rem; 
+        font-weight: 700; 
+        cursor: pointer; 
+        transition: all 0.2s;
+        width: fit-content;
+    }
+    .btn-firmar:hover {
+        background: #ffedd5;
+        transform: scale(1.05);
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+function confirmarFirma(informeId) {
+    Swal.fire({
+        title: '¿Confirmar firma digital?',
+        text: "Al firmar, confirmas que los registros de este mes son correctos.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#6366f1',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'Sí, firmar ahora',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = "/empleado/firmar_informe/" + informeId;
+        }
+    })
+}
+</script>
+
+{% endblock %}
