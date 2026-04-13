@@ -796,8 +796,8 @@ def firmar_informe_empleado(informe_id): # Nombre cambiado
     informe = db.session.get(InformeMensual, informe_id)
     if informe and informe.usuario_id == session['user_id']:
         informe.aceptado_por_empleado = True
-        informe.fecha_firma = datetime.now().strftime("%d/%m/%Y %H:%M")
-        informe.ip_firma = request.remote_addr 
+        informe.fecha_firma = datetime.now()
+        informe.ip_firma = request.headers.get('X-Forwarded-For', request.remote_addr) 
         db.session.commit()
         flash("✅ Informe mensual firmado correctamente.")
     else:
