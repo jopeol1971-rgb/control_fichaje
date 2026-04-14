@@ -11,12 +11,14 @@ from flask import (
     url_for, flash, session, Response, send_file
 )
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import check_password_hash
+# Añadida generate_password_hash para el registro de usuarios
+from werkzeug.security import check_password_hash, generate_password_hash
 
 # 3. Librerías de generación de PDF (ReportLab)
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet
+# Añadido ParagraphStyle para evitar el error 'name not defined'
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle 
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 # 4. Módulos locales del proyecto
@@ -114,61 +116,120 @@ def calcular_horas_diarias(fichajes):
             
     return resumen
 
-def generar_pdf_logic(u_id, desde=None, hasta=None):
-    # 1. Consulta de datos
-    query = Fichaje.query
-    if u_id and u_id != "":
-        query = query.filter_by(usuario_id=u_id)
-    if desde:
-        query = query.filter(Fichaje.timestamp >= desde)
-    if hasta:
-        query = query.filter(Fichaje.timestamp <= f"{hasta} 23:59:59")
-
-    fichajes = query.order_by(Fichaje.timestamp.asc()).all() # Ascendente para el PDF
-    
-    # 2. Configuración del documento
+def generar_pdf_logic(usuario, jornadas, total_periodo, rango):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), 
-                            rightMargin=30, leftMargin=30, 
-                            topMargin=30, bottomMargin=30)
+    # 1. Configuración del documento con márgenes optimizados
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=25, 
+        leftMargin=25, 
+        topMargin=30, 
+        bottomMargin=30
+    )
     elements = []
     styles = getSampleStyleSheet()
+    
+    # 2. Definición de estilos mejorados
+    estilo_titulo = ParagraphStyle(
+        'CustomTitle', 
+        parent=styles['Heading1'], 
+        alignment=1, 
+        fontSize=18, 
+        spaceAfter=25,
+        textColor=colors.black
+    )
+    estilo_empresa = ParagraphStyle(
+        'EmpresaStyle', 
+        parent=styles['Normal'], 
+        fontSize=10, 
+        leading=14 # Más espacio entre líneas de cabecera
+    )
+    estilo_firma = ParagraphStyle(
+        'FirmaStyle', 
+        parent=styles['Normal'], 
+        fontSize=9, 
+        alignment=1, 
+        leading=12
+    )
 
-    # Título del Informe
-    titulo = f"Informe de Fichajes - Usuario {u_id}"
-    elements.append(Paragraph(titulo, styles['Title']))
-    elements.append(Paragraph(f"Periodo: {desde} al {hasta}", styles['Normal']))
+    # --- 1. CABECERA: DATOS DE LA EMPRESA ---
+    datos_empresa = [
+        [Paragraph("<b>EMPRESA:</b> SUPERPEKES EVENTOS S.L.", estilo_empresa), 
+         Paragraph("<b>CIF:</b> B-12345678", estilo_empresa)],
+        [Paragraph("<b>CENTRO DE TRABAJO:</b> Calle del Daniels 123, Bezana", estilo_empresa), ""]
+    ]
+    # Tabla invisible para alinear datos de empresa y CIF a los extremos
+    tabla_empresa = Table(datos_empresa, colWidths=[380, 160])
+    tabla_empresa.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
+    elements.append(tabla_empresa)
     elements.append(Spacer(1, 20))
 
-    # 3. Preparación de la Tabla
-    # Cabecera de la tabla
-    data = [['Fecha/Hora', 'Tipo', 'Usuario ID']] 
+    # --- 2. TÍTULO Y DATOS DEL TRABAJADOR ---
+    elements.append(Paragraph(f"REGISTRO MENSUAL DE JORNADA", estilo_titulo))
     
-    # Filas de datos
-    for f in fichajes:
-        data.append([
-            f.timestamp,
-            f.tipo.upper(),
-            f.usuario_id
-        ])
+    datos_empleado = [
+        f"<b>TRABAJADOR:</b> {usuario.nombre} {usuario.apellidos}",
+        f"<b>DNI:</b> {usuario.dni}  |  <b>NASS:</b> {usuario.nass}",
+        f"<b>PERIODO:</b> {rango['desde']} a {rango['hasta']}"
+    ]
+    
+    for linea in datos_empleado:
+        elements.append(Paragraph(linea, styles['Normal']))
+    elements.append(Spacer(1, 20))
 
-    # Estilo de la tabla
-    tabla = Table(data, colWidths=[200, 100, 100])
-    tabla.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#6366f1')),
+    # --- 3. TABLA DE REGISTROS (Encuadre Profesional) ---
+    data = [['Fecha', 'Entrada', 'Salida', 'Total Horas', 'Firma / Obs.']]
+    
+    fechas_ordenadas = sorted(jornadas.keys(), key=lambda x: datetime.strptime(x, '%d/%m/%Y'))
+    
+    for fecha in fechas_ordenadas:
+        d = jornadas[fecha]
+        entrada = d['entrada'].strftime('%H:%M:%S') if d['entrada'] else '-'
+        salida = d['salida'].strftime('%H:%M:%S') if d['salida'] else '-'
+        total = f"{d['total']} h"
+        data.append([fecha, entrada, salida, total, ""])
+
+    # Ajuste de columnas: 540 puntos totales aproximadamente
+    col_widths = [75, 75, 75, 75, 240] 
+    
+    tabla_fichajes = Table(data, colWidths=col_widths)
+    tabla_fichajes.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#5e5ce6')), # Tu color corporativo
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), # Centrado vertical perfecto
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.white]) # Filas alternas
     ]))
-    
-    elements.append(tabla)
+    elements.append(tabla_fichajes)
 
-    # 4. Construcción del PDF
+    # --- 4. RESUMEN Y FIRMAS (Centradas) ---
+    elements.append(Spacer(1, 15))
+    elements.append(Paragraph(f"<b>CÓMPUTO TOTAL DEL PERIODO:</b> {total_periodo} horas", styles['Normal']))
+    elements.append(Spacer(1, 50)) # Espacio generoso antes de las firmas
+
+    data_firmas = [
+        [Paragraph("<b>FIRMA DE LA EMPRESA (Sello)</b>", estilo_firma), 
+         Paragraph("<b>FIRMA DEL TRABAJADOR</b>", estilo_firma)],
+        ["", ""], 
+        ["___________________________", "___________________________"],
+        [Paragraph("Fdo: Responsable de Superpekes", estilo_firma), 
+         Paragraph(f"Fdo: {usuario.nombre} {usuario.apellidos}", estilo_firma)]
+    ]
+    
+    tabla_firmas = Table(data_firmas, colWidths=[270, 270])
+    tabla_firmas.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
+    elements.append(tabla_firmas)
+
+    # Construir PDF
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -492,31 +553,44 @@ def exportar_csv():
     desde = request.args.get('desde')
     hasta = request.args.get('hasta')
 
-    query = Fichaje.query
-    if u_id and u_id != "":
-        query = query.filter_by(usuario_id=u_id)
-    if desde:
-        query = query.filter(Fichaje.timestamp >= desde)
-    if hasta:
-        query = query.filter(Fichaje.timestamp <= f"{hasta} 23:59:59")
+    # Validación preventiva
+    if not u_id or not desde or not hasta:
+        flash("⚠️ Faltan filtros (empleado, fecha inicio o fin) para exportar.")
+        return redirect(url_for('admin_panel'))
 
-    fichajes = query.order_by(Fichaje.timestamp.desc()).all()
+    query = Fichaje.query
+    query = query.filter_by(usuario_id=u_id)
+    query = query.filter(Fichaje.timestamp >= desde)
+    query = query.filter(Fichaje.timestamp <= f"{hasta} 23:59:59")
+
+    fichajes = query.order_by(Fichaje.timestamp.asc()).all()
+    
+    if not fichajes:
+        flash("No hay registros para este empleado en las fechas seleccionadas.")
+        return redirect(url_for('admin_panel'))
     
     output = io.StringIO() 
     writer = csv.writer(output)
-    writer.writerow(['ID', 'Empleado', 'DNI/NIE', 'Tipo', 'Fecha', 'Hora', 'Estado'])
+    writer.writerow(['ID_EMPLEADO', 'NOMBRE', 'DNI_NIE', 'NASS', 'TIPO', 'FECHA', 'HORA', 'ESTADO'])
     
     for f in fichajes:
         writer.writerow([
-            f.id, f.usuario.nombre, f.usuario.dni or "N/A", 
-            f.tipo.capitalize(), f.timestamp.strftime('%Y-%m-%d'),
-            f.timestamp.strftime('%H:%M:%S'), (f.estado or "pendiente").capitalize()
+            f.usuario_id, 
+            f"{f.usuario.nombre} {f.usuario.apellidos or ''}", 
+            f.usuario.dni, 
+            f.usuario.nass or "N/A",
+            f.tipo.upper(), 
+            f.timestamp.strftime('%d/%m/%Y'),
+            f.timestamp.strftime('%H:%M:%S'), 
+            f.estado.upper()
         ])
     
     return Response(
-        output.getvalue(), mimetype="text/csv",
-        headers={"Content-disposition": f"attachment; filename=fichajes_filtrados.csv"}
+        output.getvalue(), 
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=registro_jornada.csv"}
     )
+
 @app.route('/exportar_pdf')
 def exportar_pdf():
     if session.get('rol') != 'admin': return redirect(url_for('login'))
@@ -524,9 +598,69 @@ def exportar_pdf():
     u_id = request.args.get('usuario_id')
     desde = request.args.get('desde')
     hasta = request.args.get('hasta')
+
+    if not u_id or not desde or not hasta:
+        flash("⚠️ Selecciona empleado y rango de fechas.")
+        return redirect(url_for('admin_panel'))
     
-    pdf_buffer = generar_pdf_logic(u_id, desde, hasta)
-    return send_file(pdf_buffer, mimetype='application/pdf', download_name="reporte_admin.pdf")
+    # 1. Obtenemos el usuario
+    usuario = db.session.get(Usuario, u_id)
+    if not usuario:
+        flash("Empleado no encontrado.")
+        return redirect(url_for('admin_panel'))
+
+    # 2. Obtenemos los fichajes
+    fichajes = Fichaje.query.filter_by(usuario_id=u_id).filter(
+        Fichaje.timestamp >= desde, 
+        Fichaje.timestamp <= f"{hasta} 23:59:59"
+    ).order_by(Fichaje.timestamp.asc()).all()
+
+    if not fichajes:
+        flash("Sin datos para generar el PDF en estas fechas.")
+        return redirect(url_for('admin_panel'))
+
+    # 3. Lógica de agrupación por día
+    jornadas = {}
+    for f in fichajes:
+        fecha_str = f.timestamp.strftime('%d/%m/%Y')
+        if fecha_str not in jornadas:
+            jornadas[fecha_str] = {'entrada': None, 'salida': None, 'total': 0}
+        
+        # Guardamos la primera entrada y la última salida del día
+        if f.tipo == 'entrada' and not jornadas[fecha_str]['entrada']:
+            jornadas[fecha_str]['entrada'] = f.timestamp
+        elif f.tipo == 'salida':
+            jornadas[fecha_str]['salida'] = f.timestamp
+
+    # 4. Cálculo de horas
+    total_periodo = 0
+    for fecha in jornadas:
+        datos = jornadas[fecha]
+        if datos['entrada'] and datos['salida']:
+            diff = datos['salida'] - datos['entrada']
+            horas = diff.total_seconds() / 3600
+            jornadas[fecha]['total'] = round(horas, 2)
+            total_periodo += horas
+
+    # 5. Generación del archivo con la lógica actualizada de ReportLab
+    try:
+        pdf_buffer = generar_pdf_logic(
+            usuario=usuario, 
+            jornadas=jornadas, 
+            total_periodo=round(total_periodo, 2),
+            rango={'desde': desde, 'hasta': hasta}
+        )
+        
+        nombre_archivo = f"Registro_{usuario.dni}_{desde}.pdf"
+        return send_file(
+            pdf_buffer, 
+            mimetype='application/pdf', 
+            as_attachment=True, 
+            download_name=nombre_archivo
+        )
+    except Exception as e:
+        flash(f"Error generando PDF: {str(e)}")
+        return redirect(url_for('admin_panel'))
 
 @app.route('/admin/informe')
 def admin_informe():
@@ -763,26 +897,82 @@ def validar_fichaje(f_id, accion):
 
 from flask import send_file, make_response # Asegúrate de tener estas importaciones
 
-@app.route('/empleado/ver_pdf/<int:id>')
-def ver_pdf_personal(id):
-    informe = db.session.get(InformeMensual, id)
+@app.route('/empleado/ver_pdf/<int:informe_id>')
+def ver_pdf_personal(informe_id):
+    # 1. Usar 'user_id' para ser consistentes con el resto de la app
+    u_id = session.get('user_id')
     
-    if not informe or (informe.usuario_id != session['user_id'] and session.get('rol') != 'admin'):
-        flash("Acceso denegado.")
-        return redirect(url_for('ver_mis_informes'))
+    if not u_id:
+        print("DEBUG: No hay user_id en sesión, redirigiendo...")
+        return redirect(url_for('login'))
+    
+    # 2. Obtener el informe y verificar que pertenece al usuario logueado
+    informe = db.session.get(InformeMensual, informe_id)
+    if not informe or informe.usuario_id != u_id:
+        flash("No tienes permiso para ver este informe o no existe.")
+        return redirect(url_for('ver_mis_informes')) # Ajustado al nombre de tu ruta
 
-    try:
-        # Calculamos el rango de fechas del mes del informe
-        import calendar
-        ultimo_dia = calendar.monthrange(informe.anio, informe.mes)[1]
-        desde = f"{informe.anio}-{informe.mes:02d}-01"
-        hasta = f"{informe.anio}-{informe.mes:02d}-{ultimo_dia}"
-
-        # Llamamos a la lógica común
-        pdf_buffer = generar_pdf_logic(u_id=informe.usuario_id, desde=desde, hasta=hasta)
+    # 3. Obtener el objeto usuario completo
+    usuario = db.session.get(Usuario, u_id)
+    
+   # 4. Definir el rango de fechas basado en el informe mensual
+    desde = f"{informe.anio}-{informe.mes:02d}-01"
+    
+    # Lógica para calcular el primer día del mes siguiente
+    if informe.mes == 12:
+        mes_sig = 1
+        anio_sig = informe.anio + 1
+    else:
+        mes_sig = informe.mes + 1
+        anio_sig = informe.anio
         
-        return send_file(pdf_buffer, mimetype='application/pdf', 
-                         download_name=f"informe_{informe.anio}_{informe.mes}.pdf")
+    hasta = f"{anio_sig}-{mes_sig:02d}-01 00:00:00"
+
+    # 5. Obtener los fichajes del mes
+    # Usamos '>' y '<' para evitar problemas con los días finales
+    fichajes = Fichaje.query.filter_by(usuario_id=usuario.id).filter(
+        Fichaje.timestamp >= desde,
+        Fichaje.timestamp < hasta  # Cambiado a menor estricto
+    ).order_by(Fichaje.timestamp.asc()).all()
+
+    # 6. Agrupar por días (Lógica idéntica a la del admin)
+    jornadas = {}
+    total_segundos = 0
+    for f in fichajes:
+        fecha_str = f.timestamp.strftime('%d/%m/%Y')
+        if fecha_str not in jornadas:
+            jornadas[fecha_str] = {'entrada': None, 'salida': None, 'total': 0}
+        
+        if f.tipo == 'entrada' and not jornadas[fecha_str]['entrada']:
+            jornadas[fecha_str]['entrada'] = f.timestamp
+        elif f.tipo == 'salida':
+            jornadas[fecha_str]['salida'] = f.timestamp
+
+    # 7. Calcular totales por día
+    for fecha in jornadas:
+        d = jornadas[fecha]
+        if d['entrada'] and d['salida']:
+            diff = d['salida'] - d['entrada']
+            segundos = diff.total_seconds()
+            jornadas[fecha]['total'] = round(segundos / 3600, 2)
+            total_segundos += segundos
+
+    # 8. Generar PDF usando la función lógica común
+    try:
+        pdf_buffer = generar_pdf_logic(
+            usuario=usuario,
+            jornadas=jornadas,
+            total_periodo=round(total_segundos / 3600, 2),
+            rango={'desde': desde, 'hasta': hasta[:10]}
+        )
+        
+        nombre_descarga = f"Mi_Registro_{informe.mes}_{informe.anio}.pdf"
+        return send_file(
+            pdf_buffer, 
+            mimetype='application/pdf',
+            as_attachment=False, # Para que se abra en el navegador
+            download_name=nombre_descarga
+        )
     except Exception as e:
         flash(f"Error al generar el PDF: {str(e)}")
         return redirect(url_for('ver_mis_informes'))

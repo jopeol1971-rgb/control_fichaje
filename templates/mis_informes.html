@@ -58,7 +58,7 @@
                 </td>
                 <td style="padding: 20px 25px; text-align: center;">
                     {# Usamos el nombre de la función ver_pdf_personal y pasamos id #}
-                    <a href="{{ url_for('ver_pdf_personal', id=informe.id) }}" class="btn-pdf" target="_blank">
+                    <a href="{{ url_for('ver_pdf_personal', informe_id=informe.id) }}" class="btn-pdf" target="_blank">
                         <i class="fas fa-file-pdf"></i> VER PDF
                     </a>
                 </td>

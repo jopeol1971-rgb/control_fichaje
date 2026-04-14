@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.4; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; }
+        .info-table { width: 100%; margin-bottom: 20px; }
+        .info-table td { padding: 5px; border: 1px solid #eee; }
+        .main-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .main-table th { background-color: #f2f2f2; border: 1px solid #333; padding: 8px; font-size: 9pt; }
+        .main-table td { border: 1px solid #333; padding: 6px; text-align: center; }
+        .footer { margin-top: 50px; }
+        .signatures { width: 100%; margin-top: 40px; }
+        .sig-box { width: 45%; display: inline-block; border-top: 1px solid #000; text-align: center; padding-top: 10px; }
+        .legal { font-size: 8pt; color: #555; margin-top: 30px; text-align: justify; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>REGISTRO DIARIO DE JORNADA</h2>
+        <p>Periodo: {{ desde }} al {{ hasta }}</p>
+    </div>
+
+    <table class="info-table">
+        <tr>
+            <td><strong>EMPRESA:</strong> SUPERPEKES EVENTOS</td>
+            <td><strong>CIF/NIF:</strong> [Tu CIF aquí]</td>
+        </tr>
+        <tr>
+            <td><strong>TRABAJADOR:</strong> {{ user.nombre }} {{ user.apellidos }}</td>
+            <td><strong>DNI/NIE:</strong> {{ user.dni }}</td>
+        </tr>
+        <tr>
+            <td><strong>Nº SEG. SOCIAL:</strong> {{ user.nass }}</td>
+            <td><strong>CENTRO TRABAJO:</strong> Principal</td>
+        </tr>
+    </table>
+
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th>FECHA</th>
+                <th>ENTRADA</th>
+                <th>SALIDA</th>
+                <th>HORAS ORDINARIAS</th>
+                <th>OBSERVACIONES</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fecha, datos in item.dias.items() %}
+            <tr>
+                <td>{{ fecha }}</td>
+                <td>{{ datos.entrada.strftime('%H:%M') if datos.entrada else '-' }}</td>
+                <td>{{ datos.salida.strftime('%H:%M') if datos.salida else '-' }}</td>
+                <td>{{ datos.total_horas }} h</td>
+                <td></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #eee; font-weight: bold;">
+                <td colspan="3" style="text-align: right;">TOTAL MES:</td>
+                <td>{{ item.total_mensual }} h</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="signatures">
+        <div class="sig-box" style="float: left;">Firma y Sello de la Empresa</div>
+        <div class="sig-box" style="float: right;">Firma del Trabajador</div>
+    </div>
+
+    <div style="clear: both;"></div>
+
+    <div class="legal">
+        Este documento se expide en cumplimiento del Art. 34.9 del Estatuto de los Trabajadores. 
+        Ambas partes dan fe de la veracidad de los datos. La empresa conservará este registro durante 4 años.
+    </div>
+</body>
+</html>
